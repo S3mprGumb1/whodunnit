@@ -1,8 +1,20 @@
-﻿$NumericalVersion = $null
+﻿$scriptDir = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
+
+$UserResponse0 = Read-Host "Execute Locally or Remote? [L|R] > "
+if ($UserResponse0 -eq "R") {
+    $CredUser = Read-Host "Remote Target Admin Username > "
+    $TargetIP = Read-Host "Target FQDN or IP > "
+    
+} else {
+    $CredUser = Read-Host "Admin Username > "
+    $TargetIP = "127.0.0.1"
+}
+$job = Invoke-Command -ComputerName $TargetIP -Credential $CredUser -AsJob -FilePath $scriptDir\SystemScraper.ps1 
 $DataList = $null
-$job = Invoke-Command -ComputerName "192.168.1.2" -Credential "Time to Fuck Around" -AsJob -FilePath C:\Users\camdo\Desktop\SystemScraper.ps1 
+Write-Host "`nReading Data from target... Be Patient`n"
 Wait-Job $job
 $DataList = Receive-Job $job  
+    
 
     $TargetDate = $DataList.Item("TargetDate")
     $TargetTimeZone = $DataList.Item("TargetTimeZone")
@@ -36,6 +48,10 @@ $DataList = Receive-Job $job
     $Software = $DataList.Item("Software")
     $Processes = $DataList.Item("Processes")
     $Drivers = $DataList.Item("Drivers")
+    $DomainUsers = $DataList.Item("DomainUsers")
+    $LocalUsers = $DataList.Item("LocalUsers")
+    $ServiceUsers = $DataList.Item("ServiceUsers")
+    $UserFileList = $DataList.Item("UserFileList")
 
 
 Start-Sleep 10
@@ -47,7 +63,8 @@ Write-Host "3: System and Hardware Information   9: Wifi + Sharing Information"
 Write-Host "4: Domain Controller's Information  10: Installed Software"
 Write-Host "5: Hostname and Domain Information  11: Process Listing"
 Write-Host "6: Domain User Account Information  12: Driver Listing"
-Write-Host "7: Startup + Boot Task Information  13: User Downloads`n"
+Write-Host "7: Startup + Boot Task Information  13: User File Information`n"
+Write-Host "20: Write to Local Disk"
 
 do {
 Write-Host "> " -NoNewLine
@@ -116,42 +133,105 @@ switch ($DisplaySelection1) {
         Write-Host "`n-------------------------------------`n"
     }
     
-    '5' {
-    
+    '5' { 
+        Write-Host "`n-- Hostname and Domain Information --`n"
+
+        Write-Host "Hostname ... $Hostname"
+        Write-Host "Domain ..... $Domain"
+
+        Write-Host "`n-------------------------------------`n"
     }
     
     '6' {
-    
+        
+        if ($ActiveDirectory -eq "True") {
+            Write-Host "AD Users ... $DomainUsers"
+        }
+        Write-Host "Local Users ----------"
+        $LocalUsers | Select -Property Name,AccountType,SID | Write-host
+
+        foreach ($ServiceUser in $ServiceUsers) {
+            write-host "SID ............ " -NoNewline ; Get-WmiObject win32_useraccount -Filter "name = $ServiceUser"
+            Write-Host "Service User ... $ServiceUser" 
+        } 
     }
     
     '7' {
-    
+        Write-Host "Services -----"
+        $StartupServices
+        Write-host "Programs -----"
+        $StartupPrograms
+
+        $ScheduledTasks
     }
     
     '8' {
-    
+        Write-host "ARP Table -----"
+        $ARPTable
+        Write-Host "MAC Addresses"
+        $NetMacs
+        Write-Host "Routing Table"
+        $RoutingTable
+        Write-host "IP Addresess"
+        $IPv4Addresses
+        $IPv6Addresses
+        Write-Host "DHCP Server"
+
+        Write-Host "DNS Server"
+        $DNSServer
+        Write-Host  "Default Gateway"
+        $DefaultGateway
+        Write-Host "Listening Services"
+        $ListeningTableTCP
+        $ListeningTableUDP
+        Write-Host "Established Connections"
+        $EstablishedTable
+        Write-Host "DNS Cache"
+        $DNSCache
     }
     
     '9' {
+        Write-Host "Network Shares"
+        $NetworkShares
+        Write-Host "Printers"
+        $Printers
+        Write-Host "Wifi Profiles"
+        $Profiles
     
     }
     
     '10' {
-    
+        Write-Host "Installed Software"
+        $InstalledSoftware
     }
     
     '11' {
-    
+        $Processes | Format-Table @{l="Process Name";e='ProcessName'},@{l="PID";e='Id'},@{l="User";e='UserName'},@{l="Location";e='Path'}
+        $Processes | Format-Table @{l="Process Name";e='ProcessName'},@{l="Parent";e='MainModule'}
     }
     
     '12' {
-    
+        Write-Output "-----------Boot Critical Drivers----------"
+        $Drivers | Where-Object -Property BootCritical -eq "True" | select Driver,version,date,ProviderName
+        Write-Output ""
+        Write-Output "---------Boot Critical Drivers Cont--------"
+        $Drivers | Where-Object -Property BootCritical -eq "True" | select Driver,OriginalFilename | Format-Table
+
+        Write-Output "-------------Non Critical Drivers--------------"
+        $Drivers | Where-Object -Property BootCritical -ne "True" | select Driver,version,date,providername
+        Write-Output ""
+        Write-Output "-----------Non Critical Drivers Cont.----------"
+        $Drivers | Where-Object -Property BootCritical -ne "True" | select Driver,OriginalFilename | Format-Table
+
     }
-    
+   
     '13' {
-    
+        Write-Output $UserFileList
     }
 
-
+    '20' {
+        Write-host "Writing to C:\cmd7983\SystemScrape.csv"
+        $DataList | Export-Csv 'C:\cmd7983\SystemScrape.csv'
+    }
 }
 } while (1 -eq 1)

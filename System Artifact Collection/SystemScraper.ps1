@@ -32,6 +32,7 @@ If ($ActiveDirectory -eq "True") {
 #Write-Output "Active Directory Found, Pulling Information"
     $AllDCs = (Get-ADForest).Domains | %{ Get-ADDomainController -Filter * -Server $_ }
     $Domain = Get-ADForest.Domains
+    $DomainUsers = (Get-ADUser -Filter *)
 }
 
 
@@ -142,24 +143,27 @@ $Software = Get-WmiObject -Class Win32_Product | Sort-Object Name | select Name
 ##Write-Output "Collecting Running Process Information"
 #Process Listing
 $Processes = Get-Process -IncludeUserName | select ProcessName,Id,Path,MainModule,UserName 
-#$Processes | Format-Table @{l="Process Name";e='ProcessName'},@{l="PID";e='Id'},@{l="User";e='UserName'},@{l="Location";e='Path'}
-#$Processes | Format-Table @{l="Process Name";e='ProcessName'},@{l="Parent";e='MainModule'}
 
-#Write-Output "Collecting Installed Driver Information"
 #Driver Listing
 $Drivers = Get-WindowsDriver -Online -All
 
-#Write-Output "-----------Boot Critical Drivers----------"
-#$Drivers | Where-Object -Property BootCritical -eq "True" | select Driver,version,date,ProviderName
-#Write-Output ""
-#Write-Output "---------Boot Critical Drivers Cont--------"
-#$Drivers | Where-Object -Property BootCritical -eq "True" | select Driver,OriginalFilename | Format-Table
 
-#Write-Output "-----------Non Critical Drivers------------"
-#$Drivers | Where-Object -Property BootCritical -ne "True" | select Driver,version,date,providername
-#Write-Output ""
-#Write-Output "-----------Non Critical Drivers Cont.----------"
-#$Drivers | Where-Object -Property BootCritical -ne "True" | select Driver,OriginalFilename | Format-Table
+$ServiceUsers = @()
+foreach ($Service in Get-WmiObject win32_service | select StartName) {if($ServiceUsers -notcontains $Service){$ServiceUsers += $Service}}
+
+$UserFileList = @()
+cd 'C:\Users\'
+$userdirs = ls | select -Property Name
+foreach ($userdir in $userdirs) {
+    $userdir = $userdir.Name
+    $File = @{
+        "User" = $userdir
+        "Downloads"=ls .\$userdir\Downloads
+        "Documents"=ls .\$userdir\Documents
+        
+    }
+    $UserFileList += New-Object PSObject -Property $File
+}
 
 $DataList = @{
     "TargetDate" = $TargetDate
@@ -194,6 +198,10 @@ $DataList = @{
     "Software" = $Software
     "Processes" = $Processes
     "Drivers" = $Drivers
+    "DomainUsers" = $DomainUsers
+    "LocalUsers" = Get-CimInstance win32_useraccount
+    "ServiceUsers" = $ServiceUsers
+    "UserFileList" = $UserFileList
 }
 
 return $DataList
