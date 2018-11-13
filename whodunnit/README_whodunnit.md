@@ -3,7 +3,7 @@ Whodunnit
 A tool for parsing, filtering and presenting Windows Event Logs
 
 - Interactive mode Menu Options:
-	
+```	
 	- Read In Log Files
 		- Read from File
 		- Read from Local Machine
@@ -45,3 +45,4 @@ A tool for parsing, filtering and presenting Windows Event Logs
 		- Export all Read Log files
 		- Export all Log files that match active filter
 
+```
