@@ -1,6 +1,9 @@
 Whodunnit
+=========
 
-A tool for parsing, filtering and presenting Windows Event Logs
+Parse, Filter and Present Windows Event Logs with Ease
+
+
 
 Interactive mode Menu Options
 ```	
@@ -86,3 +89,7 @@ Notes:
 	if -p has no value set, it will be prompted.
 	
 ```
+
+Credit Where Credit is Due
+--------------------------
+[Menu Creation](https://github.com/QuietusPlus/Write-Menu "QuietusPlus's Write-Menu Repo")
