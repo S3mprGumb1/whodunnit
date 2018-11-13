@@ -6,7 +6,7 @@ Two modes:
 	Interactive mode
 	CLI mode
 
-Interactive mode
+Interactive mode 
 	Menu Options:
 		- Read In Log Files
 			- Read from File
@@ -34,7 +34,7 @@ Interactive mode
 					-Load positive events from file
 					-Load negative events from file
 				
-				- Source?
+				- Source? -- NOT IMPLEMENTED CURRENTLY
 					-Positive Selection
 					-Negative Selection
 					-Load from File
