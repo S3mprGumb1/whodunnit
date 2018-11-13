@@ -3,13 +3,8 @@ Whodunnit
 A tool for parsing, filtering and presenting Windows Event Logs
 
 Two modes:
-	Interactive mode
-	CLI mode
-
-Interactive mode 
-
-	Menu Options:
-	
+	Interactive mode Menu Options:
+		
 		- Read In Log Files
 			- Read from File
 			- Read from Local Machine
@@ -23,13 +18,16 @@ Interactive mode
 			- Filter Options
 				- Username
 					-Select from List??
+					
 				- Time Window
 					-Start and end time
+					
 				- Event Types
 					-Positive Selection
 					-Negative Selection
 					-Load positive events from file
 					-Load negative events from file
+					
 				- Type
 					-Positive Selection
 					-Negative Selection
@@ -48,5 +46,3 @@ Interactive mode
 			- Export all Read Log files
 			- Export all Log files that match active filter
 
-CLI Mode
-	- Flags for the above mentioned options
