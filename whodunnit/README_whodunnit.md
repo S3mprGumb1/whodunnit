@@ -3,7 +3,7 @@ Whodunnit
 A tool for parsing, filtering and presenting Windows Event Logs
 
 Two modes:
-	Interactive mode Menu Options:
+	- Interactive mode Menu Options:
 		
 		- Read In Log Files
 			- Read from File
