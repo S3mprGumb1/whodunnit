@@ -7,7 +7,9 @@ Two modes:
 	CLI mode
 
 Interactive mode 
+
 	Menu Options:
+	
 		- Read In Log Files
 			- Read from File
 			- Read from Local Machine
