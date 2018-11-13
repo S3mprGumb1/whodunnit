@@ -68,7 +68,7 @@ Flags:
 		Specify loading logs from local host
 		
 	-r, --remote-logs
-		Specify loading logs from local host
+		Specify loading logs from remote host
 		Username is required, password can be prompted
 		
 		-u : Administrative Username to use
