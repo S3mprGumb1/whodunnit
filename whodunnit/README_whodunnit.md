@@ -49,9 +49,9 @@ Interactive mode Menu Options
 Command Line Interface
 ```
 Usage:
-	whodunnit.ps1 -i=/full/path [-f=/full/path] [-o=/full/path] 							 |
-	whodunnit.ps1 -l [-f=/full/path] [-o=/full/path] 										 |
-	whodunnit.ps1 -r="$IPAddress" -u=$Username -p[=$Password][-f=/full/path] [-o=/full/path] |
+	whodunnit.ps1 -i=/full/path [-f=/full/path] [-o=/full/path]
+	whodunnit.ps1 -l [-f=/full/path] [-o=/full/path]
+	whodunnit.ps1 -r="$IPAddress" -u=$Username -p[=$Password][-f=/full/path] [-o=/full/path]
 	whodunnit.ps1 -c [-f=/full/path/old] [-o=/full/path/new]
 	
 Flags:
