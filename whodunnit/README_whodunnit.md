@@ -38,10 +38,10 @@ Interactive mode Menu Options
 			-Negative Selection
 			-Load from File
 			
-	- Display Log Files
-		- Log files which match the active filter
+- Display Log Files
+	- Log files which match the active filter
 		
-	- Export Log Files
-		- Export all Read Log files
-		- Export all Log files that match active filter
+- Export Log Files
+	- Export all Read Log files
+	- Export all Log files that match active filter
 ```
