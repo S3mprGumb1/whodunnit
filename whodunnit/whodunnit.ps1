@@ -49,7 +49,7 @@ function Write-Lame-Menu-Load {
         switch($UserInput) {
             '1' {}
             '2' {Read-From-Local}
-            '3' {}
+            '3' {Write-Host "TODO: This ¯\_(ツ)_/¯";Read-Host}
             '4' {Return}
         }
     
@@ -75,13 +75,14 @@ function Write-Lame-Menu-Filter {
         $UserInput = Read-Host "whodunnit> filter>"
         
         switch($UserInput) {
-            '1' {}
-            '2' {}
+            '1' {Export-Filter}
+            '2' {Load-Filter}
             '3' {Write-Lame-Menu-Filter-Edit}
             '4' {Return}
         }
     
     } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
+    
 }
 
 function Write-Lame-Menu-Filter-Edit {
@@ -103,8 +104,8 @@ function Write-Lame-Menu-Filter-Edit {
         $UserInput = Read-Host "whodunnit> filter> edit> "
         
         switch($UserInput) {
-            '1' {}
-            '2' {}
+            '1' {Change-Filter-User}
+            '2' {Change-Filter-Time}
             '3' {}
             '4' {}
             '5' {Return}
@@ -205,35 +206,184 @@ function Read-Local-Helper {
     Return Get-EventLog -LogName $LogType 
 }
 
-
-# TODO
 function Export-Filter {
 	<# Handles exporting the filter to a file      >
 	<  Takes a user input for the filepath         >
-	<  Then writes the current filter to the path #>	
+	<  Then writes the current filter to the path #>
+    Export-Filter-Helper(Read-Host "whodunnit> filter> export path> ")
+}
+
+function Export-Filter-Helper {
+    param ($FilePath)
+
+    Export-Clixml -LiteralPath $FilePath -InputObject $CurrentFilter
+
 }
 
 function Load-Filter {
 	<# Handles loading a filter from a file                     >
 	<  Takes a user input for the filepath                      >
-	<  Then loads the filter in the file to the current filter #>	
+	<  Then loads the filter in the file to the current filter #>
+	$script:CurrentFilter = Load-Filter-Helper(Read-Host "whodunnit> filter> import path> ")
+}
+
+function Load-Filter-Helper {
+    param ($FilePath)
+    return Import-Clixml -LiteralPath $FilePath
 }
 
 function Change-Filter-User {
-	<# Takes a user input to change the global variable $Username #>	
+	<# Takes a user input to change the global variable $Username #>
+    do {
+        Clear-Host
+        Write-Host "Negative Search Usernames:"
+
+        foreach ($user in $CurrentFilter.Usernames) {if($user -ne ""){$user}}
+        
+        $NewUser = Read-Host "Add / Remove > "
+        if ($NewUser -eq "") {
+            break
+        }
+
+        $isNew = 1
+        $NewUsers = @()
+        for ($i=0;$i -lt $CurrentFilter.Usernames.Count; $i++) {
+            if ($CurrentFilter.Usernames[$i] -eq $NewUser) {
+                $isNew = 0
+            } else {$NewUsers += $CurrentFilter.Usernames[$i]}
+        }
+
+        if ($isNew -eq 1) {
+            $NewUsers += ($NewUser)
+        }
+
+        $CurrentFilter.Usernames = $NewUsers
+
+    } while ($NewUser -ne "")
 }
 
 function Change-Filter-Time {
 	<# Takes a user input for a start and end date (optional time format?)    >
-	<  Then updates the global variables $TimeWindowStart and $TimeWindowEnd #>	
+	<  Then updates the global variables $TimeWindowStart and $TimeWindowEnd #>
+    
+    do {
+
+        $timeTemplate = "M/dd/yyyy H:mm"
+
+        Clear-Host
+        Write-Host "Time Window:"
+        Write-Host " " $CurrentFilter.TimeStart " "
+        Write-Host " " $CurrentFilter.TimeEnd " "
+
+        $type = Read-Host "Modify? [start/end] > "
+
+        if ($type -eq "start" -or $type -eq "1") {
+
+            Clear-Host
+            Write-Host "Time Window:"
+            Write-Host "+" $CurrentFilter.TimeStart "+"
+            Write-Host " " $CurrentFilter.TimeEnd " "
+        
+            $newTime = Read-Host "New Value [M/dd/yyyy H:mm] > "
+
+            if ($newTime -eq "") {continue}
+
+            $newTime
+            [DateTime]::ParseExact($newTime, $timeTemplate, $null)
+            Read-Host
+            $script:CurrentFilter.TimeStart = [DateTime]::ParseExact($newTime, $timeTemplate, $null)
+
+        }
+
+        if ($type -eq "end" -or $type -eq "2") {
+
+            Clear-Host
+            Write-Host "Time Window:"
+            Write-Host " " $CurrentFilter.TimeStart " "
+            Write-Host "+" $CurrentFilter.TimeEnd "+"
+        
+            $newTime = Read-Host "New Value [M/dd/yyyy H:mm] > "
+
+            if ($newTime -eq "") {continue}
+
+            $newTime
+            [DateTime]::ParseExact($newTime, $timeTemplate, $null)
+            Read-Host
+            $script:CurrentFilter.TimeEnd = [DateTime]::ParseExact($newTime, $timeTemplate, $null)
+
+        }
+    } while($type -ne "")
+}
+
+# TODO
+
+
+
+function Change-Filter-Time {
+	<# Takes a user input for a start and end date (optional time format?)    >
+	<  Then updates the global variables $TimeWindowStart and $TimeWindowEnd #>
+    
+    do {
+
+        $timeTemplate = "M/dd/yyyy H:mm"
+
+        Clear-Host
+        Write-Host "Time Window:"
+        Write-Host " " $CurrentFilter.TimeStart " "
+        Write-Host " " $CurrentFilter.TimeEnd " "
+
+        $type = Read-Host "Modify? [start/end] > "
+
+        if ($type -eq "start" -or $type -eq "1") {
+
+            Clear-Host
+            Write-Host "Time Window:"
+            Write-Host "+" $CurrentFilter.TimeStart "+"
+            Write-Host " " $CurrentFilter.TimeEnd " "
+        
+            $newTime = Read-Host "New Value [M/dd/yyyy H:mm] > "
+
+            if ($newTime -eq "") {continue}
+
+            $newTime
+            [DateTime]::ParseExact($newTime, $timeTemplate, $null)
+            Read-Host
+            $script:CurrentFilter.TimeStart = [DateTime]::ParseExact($newTime, $timeTemplate, $null)
+
+        }
+
+        if ($type -eq "end" -or $type -eq "2") {
+
+            Clear-Host
+            Write-Host "Time Window:"
+            Write-Host " " $CurrentFilter.TimeStart " "
+            Write-Host "+" $CurrentFilter.TimeEnd "+"
+        
+            $newTime = Read-Host "New Value [M/dd/yyyy H:mm] > "
+
+            if ($newTime -eq "") {continue}
+
+            $newTime
+            [DateTime]::ParseExact($newTime, $timeTemplate, $null)
+            Read-Host
+            $script:CurrentFilter.TimeEnd = [DateTime]::ParseExact($newTime, $timeTemplate, $null)
+
+        }
+    } while($type -ne "")
+}
+
+function Change-Filter-EventCodes {
+
+}
+
+function Change-Filter-EventTypes {
+
 }
 
 
-$CurrentFilter = Create-Filter
+$script:CurrentFilter = Create-Filter(@())
 $Logs = Create-Log-Struct
 Write-Lame-Menu-Main
-
-
 
 <# Very Fancy Menu. Will be implemented after everything else works
 
