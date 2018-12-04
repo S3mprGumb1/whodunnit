@@ -3,43 +3,42 @@ Whodunnit
 
 Parse, Filter and Present Windows Event Logs with Ease
 
-
+Key
+```
+- -> Incomplete
++ -> Complete
+? -> Planned for Future Implementaion
+```
 
 Interactive mode Menu Options
 ```	
 - Read In Log Files
 	- Read from File
-	- Read from Local Machine
-	- Read from Remote Machine
-		-Requires PSRemoting
-		-Requires Admin Creds to box
+	+ Read from Local Machine
+	? Read from Remote Machine
+		?Requires PSRemoting
+		?Requires Admin Creds to box
 		
-- Set Active Filter
-	- Export Active Filter to File
-	- Load Filter From File
-	- Filter Options
-		- Username
-			-Select from List??
++ Set Active Filter
+	+ Export Active Filter to File
+	+ Load Filter From File
+	+ Filter Options
+		+ Username
+			+Negative Selection
 			
-		- Time Window
-			-Start and end time
+		+ Time Window
+			+Start time
+			+End time
 			
-		- Event Types
-			-Positive Selection
-			-Negative Selection
-			-Load positive events from file
-			-Load negative events from file
-			
-		- Type
-			-Positive Selection
-			-Negative Selection
-			-Load positive events from file
-			-Load negative events from file
+		+ Event Types
+			+Positive Selection
+
+		+ Type
+			+Positive Selection
 		
-		- Source? -- NOT IMPLEMENTED CURRENTLY
-			-Positive Selection
-			-Negative Selection
-			-Load from File
+		? Source 
+			?Positive Selection
+			?Negative Selection
 			
 - Display Log Files
 	- Log files which match the active filter
