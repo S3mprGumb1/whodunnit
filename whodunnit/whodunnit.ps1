@@ -106,8 +106,8 @@ function Write-Lame-Menu-Filter-Edit {
         switch($UserInput) {
             '1' {Change-Filter-User}
             '2' {Change-Filter-Time}
-            '3' {}
-            '4' {}
+            '3' {Change-Filter-EventCodes}
+            '4' {Change-Filter-EventTypes}
             '5' {Return}
         }
     
@@ -315,73 +315,89 @@ function Change-Filter-Time {
     } while($type -ne "")
 }
 
-# TODO
+function Change-Filter-EventTypes {
 
-
-
-function Change-Filter-Time {
-	<# Takes a user input for a start and end date (optional time format?)    >
-	<  Then updates the global variables $TimeWindowStart and $TimeWindowEnd #>
-    
     do {
-
-        $timeTemplate = "M/dd/yyyy H:mm"
-
         Clear-Host
-        Write-Host "Time Window:"
-        Write-Host " " $CurrentFilter.TimeStart " "
-        Write-Host " " $CurrentFilter.TimeEnd " "
+        Write-Host "Event Types Included:"
 
-        $type = Read-Host "Modify? [start/end] > "
-
-        if ($type -eq "start" -or $type -eq "1") {
-
-            Clear-Host
-            Write-Host "Time Window:"
-            Write-Host "+" $CurrentFilter.TimeStart "+"
-            Write-Host " " $CurrentFilter.TimeEnd " "
+        foreach ($EventType in @("Error", "Warning", "Information", "Success Audit", "Failure Audit")) {
         
-            $newTime = Read-Host "New Value [M/dd/yyyy H:mm] > "
+            $found = 0
+            foreach ($event in $CurrentFilter.EventTypes) {
+                if ($EventType -eq $event) {$found = 1}
+            }
 
-            if ($newTime -eq "") {continue}
-
-            $newTime
-            [DateTime]::ParseExact($newTime, $timeTemplate, $null)
-            Read-Host
-            $script:CurrentFilter.TimeStart = [DateTime]::ParseExact($newTime, $timeTemplate, $null)
-
+            if ($found -eq 1) {Write-Host "[X] " $EventType}
+            else {Write-Host "[ ] " $EventType}
+    
         }
 
-        if ($type -eq "end" -or $type -eq "2") {
+        $toggle = Read-Host "Toggle? > "
 
-            Clear-Host
-            Write-Host "Time Window:"
-            Write-Host " " $CurrentFilter.TimeStart " "
-            Write-Host "+" $CurrentFilter.TimeEnd "+"
-        
-            $newTime = Read-Host "New Value [M/dd/yyyy H:mm] > "
+        if ($toggle -eq "") {return}
 
-            if ($newTime -eq "") {continue}
-
-            $newTime
-            [DateTime]::ParseExact($newTime, $timeTemplate, $null)
-            Read-Host
-            $script:CurrentFilter.TimeEnd = [DateTime]::ParseExact($newTime, $timeTemplate, $null)
-
+        $isNew = 1
+        $NewEvents = @()
+        for ($i=0;$i -lt $CurrentFilter.EventTypes.Count; $i++) {
+            if ($CurrentFilter.EventTypes[$i] -eq $toggle) {
+               $isNew = 0
+            } else {$NewEvents += $CurrentFilter.EventTypes[$i]}
         }
-    } while($type -ne "")
+    
+        if ($isNew -eq 1 `
+            -and ($toggle.ToLower() -eq "error" `
+              -or $toggle -eq "warning" `
+              -or $toggle -eq "information" `
+              -or $toggle -eq "success audit" `
+              -or $toggle -eq "failure audit" )) {
+
+            $NewEvents += ($toggle)
+        }
+
+        $script:CurrentFilter.EventTypes = $NewEvents
+    
+    } while ($toggle -ne "")
+
 }
 
 function Change-Filter-EventCodes {
+   do {
+        Clear-Host
+        Write-Host "Positive Search Event Codes:"
 
+        foreach ($event in $CurrentFilter.EventCodes) {if($event -ne ""){$event}}
+        
+        $NewCode = Read-Host 'Add / Remove [$ErrorCode | reset]> '
+       
+        if ($NewCode -eq "") {break}
+        if ($NewCode -eq "reset") {$script:CurrentFilter.EventCodes = @(); continue}
+
+
+        $isNew = 1
+        $NewCodes = @()
+        for ($i=0;$i -lt $CurrentFilter.EventCodes.Count; $i++) {
+            if ($CurrentFilter.EventCodes[$i] -eq $NewCode) {
+                $isNew = 0
+            } else {$NewCodes += $CurrentFilter.EventCodes[$i]}
+        }
+
+        if ($isNew -eq 1) {
+            $NewCodes += ($NewCode)
+        }
+
+        $CurrentFilter.EventCodes = $NewCodes
+
+    } while ($NewCodes -ne "") 
 }
 
-function Change-Filter-EventTypes {
-
-}
+# TODO 12/3/2018
 
 
-$script:CurrentFilter = Create-Filter(@())
+
+
+
+$script:CurrentFilter = Create-Filter(@(),"","",@(),@())
 $Logs = Create-Log-Struct
 Write-Lame-Menu-Main
 
