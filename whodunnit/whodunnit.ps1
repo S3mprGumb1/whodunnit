@@ -1,5 +1,6 @@
 ﻿. $PSScriptRoot\Write-Menu\Write-Menu.ps1
 
+
 # Menu Functions
 function Write-Lame-Menu-Main {
 
@@ -114,9 +115,50 @@ function Write-Lame-Menu-Filter-Edit {
     } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5")
 }
 
+function Write-Lame-Menu-Display {
+
+    do {
+        Clear-Host
+        Write-Host "============================="
+        Write-Host "     Whodunnit > Display"
+        Write-Host "============================="
+        Write-Host
+        Write-Host "1) Application Events"
+        Write-Host "2) Hardware Events"
+        Write-Host "3) Security Events"
+        Write-Host "4) System Events"
+        Write-Host "5) Internet Explorer"
+        Write-Host "6) Key Management"
+        Write-Host "7) OAlerts"
+        Write-Host "8) Windows Azure"
+        Write-Host "9) Windows Powershell"
+        Write-Host "0) Back"
+        Write-Host
+
+    
+        $UserInput = Read-Host "whodunnit> display> "
+        
+        switch($UserInput) {
+            '1' {}
+            '2' {}
+            '3' {}
+            '4' {}
+            '5' {}
+            '6' {}
+            '7' {}
+            '8' {}
+            '9' {}
+        }
+    
+    } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5" -and $UserInput -ne "6" -and $UserInput -ne "7" -and $UserInput -ne "8" -and $UserInput -ne "9" )
+
+}
 
 
-# Productive Functions
+
+# Productive Functions #
+
+# Constructors
 function Create-Filter {
     param ($Usernames, $TimeStart, $TimeEnd, $EventCodes, $EventTypes)
 
@@ -149,6 +191,8 @@ function Create-Log-Struct {
     return $logs
 }
 
+
+# Subroutines
 function Read-From-Local {
     if ($Logs.Loaded) {
         Write-Host "Logs are already loaded!"
@@ -196,28 +240,11 @@ function Read-From-Local {
     Write-Progress -Activity "Loading Event Logs from Local Host" -Id 1 -Completed
 }
 
-function Read-Local-Helper {
-    param ($LogType)
-
-    $LogCounts = (Get-EventLog -List | Where Log -EQ $LogType).Entries.Count
-
-    if ($LogCounts = 0) {Return $null}
-
-    Return Get-EventLog -LogName $LogType 
-}
-
 function Export-Filter {
 	<# Handles exporting the filter to a file      >
 	<  Takes a user input for the filepath         >
 	<  Then writes the current filter to the path #>
     Export-Filter-Helper(Read-Host "whodunnit> filter> export path> ")
-}
-
-function Export-Filter-Helper {
-    param ($FilePath)
-
-    Export-Clixml -LiteralPath $FilePath -InputObject $CurrentFilter
-
 }
 
 function Load-Filter {
@@ -391,9 +418,40 @@ function Change-Filter-EventCodes {
     } while ($NewCodes -ne "") 
 }
 
-# TODO 12/3/2018
+
+# Helper Functions
+
+function Read-Local-Helper {
+    param ($LogType)
+
+    $LogCounts = (Get-EventLog -List | Where Log -EQ $LogType).Entries.Count
+
+    if ($LogCounts = 0) {Return $null}
+
+    Return Get-EventLog -LogName $LogType 
+}
+
+function Export-Filter-Helper {
+    param ($FilePath)
+
+    Export-Clixml -LiteralPath $FilePath -InputObject $CurrentFilter
+
+}
 
 
+
+# TODO 12/4/2018
+
+function Export-Logs {}
+
+function Read-Logs-From-File {}
+
+function Display-Logs {
+    param ($LogType)
+}
+
+
+# Command Line Interface backbone
 
 
 
