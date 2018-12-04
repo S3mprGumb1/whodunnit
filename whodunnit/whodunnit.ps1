@@ -156,17 +156,53 @@ function Read-From-Local {
         if ($UserInput -ne "y" -and $UserInput -ne "yes") {Return}
     }
 
-    Write-Host "Loading Logs..."
-    $Logs.Application = Get-EventLog -LogName Application
-    $Logs.HardwareEvents = Get-EventLog -LogName HardwareEvents
-    $Logs.InternetExplorer = Get-EventLog -LogName 'Internet Explorer'
-    $Logs.KeyManagement = Get-EventLog -LogName 'Key Management Service'
-    $Logs.OAlerts = Get-EventLog -LogName OAlerts
-    $Logs.Security = Get-EventLog -LogName Security
-    $Logs.System = Get-EventLog -LogName System
-    $Logs.WindowsAzure = Get-EventLog -LogName 'Windows Azure'
-    $Logs.WindowsPowershell = Get-EventLog -LogName 'Windows PowerShell'
+    $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+    $LogTypes = "Application", "HardwareEvents", "Internet Explorer", "Key Management Service", "OAlerts", "System", "Windows Azure", "Windows PowerShell", "Security"
+    
+    for ($i = 0; $i -lt $LogTypes.Length; $i++) {
+        
+        $LogType = $LogTypes[$i]
+        $Count = $i + 1
+        Write-Progress  -Activity "Loading Event Logs from Local Host" `
+                        -Status "$Count of 9" `
+                        -CurrentOperation "Loading $LogType Logs" `
+                        -PercentComplete ($Count / 9 * 100) `
+                        -Id 1
+
+        if ($LogType = "Security") {
+            if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+                Write-Host "Warning! Insignificant priviledges to load security logs!"
+                Continue
+            }
+        }
+        
+        switch ($i) {
+            0 {$Logs.Application = Read-Local-Helper("Application")}
+            1 {$Logs.HardwareEvents = Read-Local-Helper("HardwareEvents")}
+            2 {$Logs.InternetExplorer = Read-Local-Helper('Internet Explorer')}
+            3 {$Logs.KeyManagement = Read-Local-Helper('Key Management Service')}
+            4 {$Logs.OAlerts = Read-Local-Helper('OAlerts')}
+            5 {$Logs.System = Read-Local-Helper('System')}
+            6 {$Logs.WindowsAzure = Read-Local-Helper('Windows Azure')}
+            7 {$Logs.WindowsPowershell = Read-Local-Helper('Windows PowerShell')}
+            8 {$Logs.Security = Read-Local-Helper('Security')}
+
+        }
+    
+    }
+
     $Logs.Loaded = $true
+    Write-Progress -Activity "Loading Event Logs from Local Host" -Id 1 -Completed
+}
+
+function Read-Local-Helper {
+    param ($LogType)
+
+    $LogCounts = (Get-EventLog -List | Where Log -EQ $LogType).Entries.Count
+
+    if ($LogCounts = 0) {Return $null}
+
+    Return Get-EventLog -LogName $LogType 
 }
 
 
