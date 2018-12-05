@@ -23,7 +23,7 @@ function Write-Lame-Menu-Main {
             '1' {Write-Lame-Menu-Load}
             '2' {Write-Lame-Menu-Filter}
             '3' {}
-            '4' {}
+            '4' {Export-Logs}
         }
     
     } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
@@ -98,7 +98,8 @@ function Write-Lame-Menu-Filter-Edit {
         Write-Host "2) Time Window"
         Write-Host "3) Event Codes"
         Write-Host "4) Event Types"
-        Write-Host "5) Back"
+        Write-Host "5) Event Sources"
+        Write-Host "6) Back"
         Write-Host
 
     
@@ -109,7 +110,7 @@ function Write-Lame-Menu-Filter-Edit {
             '2' {Change-Filter-Time}
             '3' {Change-Filter-EventCodes}
             '4' {Change-Filter-EventTypes}
-            '5' {Return}
+            '5' {Change-Filter-EventSources}
         }
     
     } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5")
@@ -160,7 +161,7 @@ function Write-Lame-Menu-Display {
 
 # Constructors
 function Create-Filter {
-    param ($Usernames, $TimeStart, $TimeEnd, $EventCodes, $EventTypes)
+    param ($Usernames, $TimeStart, $TimeEnd, $EventCodes, $EventTypes, $EventSources)
 
     $filter = New-Object psobject
 
@@ -169,6 +170,7 @@ function Create-Filter {
     $filter | add-member -type NoteProperty -Name TimeEnd -Value $TimeEnd
     $filter | add-member -type NoteProperty -Name EventCodes -Value $EventCodes
     $filter | add-member -type NoteProperty -Name EventTypes -Value $EventTypes
+    $filter | add-member -type NoteProperty -Name EventSources -Value $EventSources
 
     return $filter
 }
@@ -214,7 +216,7 @@ function Read-From-Local {
                         -PercentComplete ($Count / 9 * 100) `
                         -Id 1
 
-        if ($LogType = "Security") {
+        if ($LogType -eq "Security") {
             if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
                 Write-Host "Warning! Insignificant priviledges to load security logs!"
                 Continue
@@ -222,15 +224,15 @@ function Read-From-Local {
         }
         
         switch ($i) {
-            0 {$Logs.Application = Read-Local-Helper("Application")}
-            1 {$Logs.HardwareEvents = Read-Local-Helper("HardwareEvents")}
-            2 {$Logs.InternetExplorer = Read-Local-Helper('Internet Explorer')}
-            3 {$Logs.KeyManagement = Read-Local-Helper('Key Management Service')}
-            4 {$Logs.OAlerts = Read-Local-Helper('OAlerts')}
-            5 {$Logs.System = Read-Local-Helper('System')}
-            6 {$Logs.WindowsAzure = Read-Local-Helper('Windows Azure')}
-            7 {$Logs.WindowsPowershell = Read-Local-Helper('Windows PowerShell')}
-            8 {$Logs.Security = Read-Local-Helper('Security')}
+            0 {$script:Logs.Application = Read-Local-Helper("Application")}
+            1 {$script:Logs.HardwareEvents = Read-Local-Helper("HardwareEvents")}
+            2 {$script:Logs.InternetExplorer = Read-Local-Helper('Internet Explorer')}
+            3 {$script:Logs.KeyManagement = Read-Local-Helper('Key Management Service')}
+            4 {$script:Logs.OAlerts = Read-Local-Helper('OAlerts')}
+            5 {$script:Logs.System = Read-Local-Helper('System')}
+            6 {$script:Logs.WindowsAzure = Read-Local-Helper('Windows Azure')}
+            7 {$script:Logs.WindowsPowershell = Read-Local-Helper('Windows PowerShell')}
+            8 {$script:Logs.Security = Read-Local-Helper('Security')}
 
         }
     
@@ -238,6 +240,7 @@ function Read-From-Local {
 
     $Logs.Loaded = $true
     Write-Progress -Activity "Loading Event Logs from Local Host" -Id 1 -Completed
+
 }
 
 function Export-Filter {
@@ -418,6 +421,70 @@ function Change-Filter-EventCodes {
     } while ($NewCodes -ne "") 
 }
 
+function Change-Filter-EventSources {
+    do {
+        Clear-Host
+        Write-Host "Event Types Included:"
+
+        foreach ($EventSource in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
+        
+            $found = 0
+            foreach ($event in $CurrentFilter.EventSources) {
+                if ($EventSource -eq $event) {$found = 1}
+            }
+
+            if ($found -eq 1) {Write-Host "[X] " $EventSource}
+            else {Write-Host "[ ] " $EventSource}
+    
+        }
+
+        $toggle = Read-Host "Toggle? > "
+
+        if ($toggle -eq "") {return}
+
+        $isNew = 1
+        $NewEvents = @()
+        for ($i=0;$i -lt $CurrentFilter.EventSources.Count; $i++) {
+            if ($CurrentFilter.EventSources[$i] -eq $toggle) {
+               $isNew = 0
+            } else {$NewEvents += $CurrentFilter.EventSources[$i]}
+        }
+    
+        if ($isNew -eq 1 `
+            -and ($toggle.ToLower() -eq "application" `
+              -or $toggle -eq "hardware events" `
+              -or $toggle -eq "internet explorer" `
+              -or $toggle -eq "key management" `
+              -or $toggle -eq "oalerts" `
+              -or $toggle -eq "security" `
+              -or $toggle -eq "system" `
+              -or $toggle -eq "windows azure" `
+              -or $toggle -eq "windows powershell" `
+               )) {
+
+            $NewEvents += ($toggle)
+        }
+
+        $script:CurrentFilter.EventSources = $NewEvents
+    
+    } while ($toggle -ne "")
+
+}
+
+function Read-Logs-From-File {
+    
+    if ($Logs.Loaded) {
+        Write-Host "Logs are already loaded!"
+        $UserInput = Read-Host "Overwrite? [y/n]"
+
+        if ($UserInput -ne "y" -and $UserInput -ne "yes") {Return}
+    }
+
+
+    $script:Logs = Read-Logs-From-File-Helper(Read-Host "whodunnit> load> import path> ")
+
+}
+
 
 # Helper Functions
 
@@ -426,7 +493,7 @@ function Read-Local-Helper {
 
     $LogCounts = (Get-EventLog -List | Where Log -EQ $LogType).Entries.Count
 
-    if ($LogCounts = 0) {Return $null}
+    if ($LogCounts -eq 0) {Return $null}
 
     Return Get-EventLog -LogName $LogType 
 }
@@ -438,13 +505,66 @@ function Export-Filter-Helper {
 
 }
 
+function Read-Logs-From-File-Helper{
+    param ($FilePath)
+    return Import-Clixml -LiteralPath $FilePath
+}
 
 
 # TODO 12/4/2018
 
-function Export-Logs {}
+function Export-Logs {
 
-function Read-Logs-From-File {}
+    if ($Logs.Loaded -eq $False) {
+        Read-Host "++ No Logs are Loaded! Cannot Export ++"
+        Return
+    }
+
+    $exType = Read-Host "whodunnit> export all?> "
+    $filePath = Read-Host "whodunnit> export path> "
+    # Export all logs
+    if ($exType -ne "") {
+        Export-Clixml -InputObject $Logs -LiteralPath $filePath
+
+    }
+
+}
+
+function Filter-Logs {
+    
+    $returnList = @()
+
+    foreach ($logtype in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
+        
+        $found = 0
+        foreach ($event in $CurrentFilter.EventSources) {
+            if ($logtype -eq $event.replace(' ', '')) {$script:FilteredLogs.$logtype = Filter-Routine($logtype); $script:FilteredLogs.Loaded = $true; break}
+        }
+
+    }
+
+}
+
+function Filter-Routine {
+    param ($logtype)
+    
+    $returnlist = @()
+    Read-Host "made it here"
+    $Logs.$logtype[0] | gm
+
+    for ($i = 0; $i  -lt $Logs.$logtype; $i++) {
+        $log = $Logs.$logtype[$i]
+        $found = 0
+        foreach ($user in $CurrentFilter.Usernames) {
+            if ($log.UserName -contains $user) {
+                $returnlist += $log
+                break
+            }
+        }
+    }
+
+    return $returnlist
+}
 
 function Display-Logs {
     param ($LogType)
@@ -456,8 +576,16 @@ function Display-Logs {
 
 
 $script:CurrentFilter = Create-Filter(@(),"","",@(),@())
-$Logs = Create-Log-Struct
-Write-Lame-Menu-Main
+$script:Logs = Create-Log-Struct
+$script:FilteredLogs = Create-Log-Struct
+#Write-Lame-Menu-Main
+Read-From-Local
+Change-Filter-EventSources
+Filter-Logs
+$FilteredLogs
+
+
+
 
 <# Very Fancy Menu. Will be implemented after everything else works
 
