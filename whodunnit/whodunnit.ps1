@@ -114,6 +114,9 @@ function Write-Lame-Menu-Filter-Edit {
         }
     
     } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5")
+    
+    Write-Output "Filtering Logs..."
+    Filter-Logs
 }
 
 function Write-Lame-Menu-Display {
@@ -168,7 +171,7 @@ function Create-Filter {
     $filter | add-member -type NoteProperty -Name Usernames -Value $Usernames
     $filter | add-member -type NoteProperty -Name TimeStart -Value $TimeStart
     $filter | add-member -type NoteProperty -Name TimeEnd -Value $TimeEnd
-    $filter | add-member -type NoteProperty -Name EventCodes -Value $EventCodes
+    $filter | add-member -type NoteProperty -Name EventCodes -Value @("*")
     $filter | add-member -type NoteProperty -Name EventTypes -Value $EventTypes
     $filter | add-member -type NoteProperty -Name EventSources -Value $EventSources
 
@@ -179,15 +182,15 @@ function Create-Log-Struct {
     
     $logs = New-Object psobject
 
-    $logs | Add-Member -type NoteProperty -Name Application -Value ""
-    $logs | Add-Member -Type NoteProperty -Name HardwareEvents -Value ""
-    $logs | Add-Member -Type NoteProperty -Name InternetExplorer -Value ""
-    $logs | Add-Member -Type NoteProperty -Name KeyManagement -Value ""
-    $logs | Add-Member -Type NoteProperty -Name OAlerts -Value ""
-    $logs | Add-Member -Type NoteProperty -Name Security -Value ""
-    $logs | Add-Member -Type NoteProperty -Name System -Value ""
-    $logs | Add-Member -Type NoteProperty -Name WindowsAzure -Value ""
-    $logs | Add-Member -Type NoteProperty -Name WindowsPowershell -Value ""
+    $logs | Add-Member -type NoteProperty -Name Application -Value @()
+    $logs | Add-Member -Type NoteProperty -Name HardwareEvents -Value @()
+    $logs | Add-Member -Type NoteProperty -Name InternetExplorer -Value @()
+    $logs | Add-Member -Type NoteProperty -Name KeyManagement -Value @()
+    $logs | Add-Member -Type NoteProperty -Name OAlerts -Value @()
+    $logs | Add-Member -Type NoteProperty -Name Security -Value @()
+    $logs | Add-Member -Type NoteProperty -Name System -Value @()
+    $logs | Add-Member -Type NoteProperty -Name WindowsAzure -Value @()
+    $logs | Add-Member -Type NoteProperty -Name WindowsPowershell -Value @()
     $logs | Add-Member -Type NoteProperty -Name Loaded -Value $false
 
     return $logs
@@ -255,6 +258,8 @@ function Load-Filter {
 	<  Takes a user input for the filepath                      >
 	<  Then loads the filter in the file to the current filter #>
 	$script:CurrentFilter = Load-Filter-Helper(Read-Host "whodunnit> filter> import path> ")
+    Write-Output "Filtering Logs..."
+    Filter-Logs
 }
 
 function Load-Filter-Helper {
@@ -485,6 +490,25 @@ function Read-Logs-From-File {
 
 }
 
+function Export-Logs {
+
+    if ($Logs.Loaded -eq $False) {
+        Read-Host "++ No Logs are Loaded! Cannot Export ++"
+        Return
+    }
+
+    $exType = Read-Host "whodunnit> export all?> "
+    $filePath = Read-Host "whodunnit> export path> "
+    
+    # Export all logs
+    if ($exType -eq "y" -or $exType -eq "yes") {
+        Export-Clixml -InputObject $Logs -LiteralPath $filePath
+    } elseif ($exType -eq "n" -or $exType -eq "no") {
+        Export-Clixml -InputObject $FilteredLogs -LiteralPath $filePath
+    }
+
+}
+
 
 # Helper Functions
 
@@ -510,64 +534,70 @@ function Read-Logs-From-File-Helper{
     return Import-Clixml -LiteralPath $FilePath
 }
 
-
-# TODO 12/4/2018
-
-function Export-Logs {
-
-    if ($Logs.Loaded -eq $False) {
-        Read-Host "++ No Logs are Loaded! Cannot Export ++"
-        Return
-    }
-
-    $exType = Read-Host "whodunnit> export all?> "
-    $filePath = Read-Host "whodunnit> export path> "
-    # Export all logs
-    if ($exType -ne "") {
-        Export-Clixml -InputObject $Logs -LiteralPath $filePath
-
-    }
-
-}
-
 function Filter-Logs {
-    
-    $returnList = @()
 
     foreach ($logtype in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
         
         $found = 0
         foreach ($event in $CurrentFilter.EventSources) {
-            if ($logtype -eq $event.replace(' ', '')) {$script:FilteredLogs.$logtype = Filter-Routine($logtype); $script:FilteredLogs.Loaded = $true; break}
-        }
+            if ($logtype -eq $event.replace(' ', '')) {
+                $currentType = $Logs.$logtype
+                
+                # Loop through all logs in this section
+                # for each element, call the check function to determine if it fits
+                # Returns true if the element is a match for the current filter
 
-    }
+                foreach ($log in $currentType) {
+                    
+                    # Skip non null username values, and users in the usernames list
+                    if ($log.Username -ne $null) {
+                        if ($CurrentFilter.Usernames.Contains($log.UserName.split('\')[1])) {
+                            continue
+                        }
+                    }
 
-}
+                    # Exclude logs created before specified time range
+                    if ($CurrentFilter.TimeStart -ne $null){
+                        if ($log.TimeGenerated -lt $CurrentFilter.TimeStart) {
+                            continue
+                        }
+                    }
+                    
+                    # Exclude logs created after specified time range
+                    if ($CurrentFilter.TimeEnd -ne $null) {
+                        if ($log.TimeGenerated -gt $CurrentFilter.TimeEnd) {
+                            continue
+                        }
+                    }
 
-function Filter-Routine {
-    param ($logtype)
-    
-    $returnlist = @()
-    Read-Host "made it here"
-    $Logs.$logtype[0] | gm
+                    # Include logs with matching event codes, unless * is in the event codes
+                    if (-not $CurrentFilter.EventCodes.Contains("*")) {
+                        if (-not $CurrentFilter.EventCodes.Contains($log.EventID)) {
+                            continue
+                        }
+                    }
 
-    for ($i = 0; $i  -lt $Logs.$logtype; $i++) {
-        $log = $Logs.$logtype[$i]
-        $found = 0
-        foreach ($user in $CurrentFilter.Usernames) {
-            if ($log.UserName -contains $user) {
-                $returnlist += $log
-                break
+                    # Exclude unseleted types
+                    if (-not $CurrentFilter.EventTypes.Contains($log.EventTypes)) {
+                        continue
+                    }
+
+
+                    # Additional Filter Criteria go here
+
+
+                    $script:FilteredLogs.$logtype += $log
+                    
+                }
             }
         }
     }
-
-    return $returnlist
 }
 
+# TODO
+
 function Display-Logs {
-    param ($LogType)
+    
 }
 
 
@@ -578,12 +608,7 @@ function Display-Logs {
 $script:CurrentFilter = Create-Filter(@(),"","",@(),@())
 $script:Logs = Create-Log-Struct
 $script:FilteredLogs = Create-Log-Struct
-#Write-Lame-Menu-Main
-Read-From-Local
-Change-Filter-EventSources
-Filter-Logs
-$FilteredLogs
-
+Write-Lame-Menu-Main
 
 
 
