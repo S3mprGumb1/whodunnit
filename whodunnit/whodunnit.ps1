@@ -1,4 +1,6 @@
-﻿. $PSScriptRoot\Write-Menu\Write-Menu.ps1
+﻿# Import for Write-Menu, unused in the current state
+# if I manage to get the commented block at the bottom working, this will be needed
+#. $PSScriptRoot\Write-Menu\Write-Menu.ps1
 
 
 # Menu Functions
@@ -40,7 +42,7 @@ function Write-Lame-Menu-Load {
         Write-Host
         Write-Host "1) Read From File"
         Write-Host "2) Read From Local Machine"
-        Write-Host "3) Read From Remote Machine"
+        Write-Host "3) Read From Remote Machine [NI]"
         Write-Host "4) Back"
         Write-Host
 
@@ -50,7 +52,7 @@ function Write-Lame-Menu-Load {
         switch($UserInput) {
             '1' {Import-Logs}
             '2' {Read-From-Local; Return}
-            '3' {Write-Host "TODO: This ¯\_(ツ)_/¯";Read-Host}
+            '3' {Not-Yet-Implemented}
             '4' {Return}
         }
     
@@ -66,20 +68,21 @@ function Write-Lame-Menu-Filter {
         Write-Host "     Whodunnit > Filter "
         Write-Host "============================="
         Write-Host
-        Write-Host "1) Export Filter"
-        Write-Host "2) Load Filter"
-        Write-Host "3) Edit Filter"
-        Write-Host "4) Back"
+        Write-Host "1) Load Filter"
+        Write-Host "2) Edit Filter"
+        Write-Host "3) Export Filter"
+        Write-Host "4) Apply"
+        Write-Host "5) Back"
         Write-Host
 
     
         $UserInput = Read-Host "whodunnit> filter>"
         
         switch($UserInput) {
-            '1' {Export-Filter}
-            '2' {Load-Filter}
-            '3' {Write-Lame-Menu-Filter-Edit}
-            '4' {Return}
+            '3' {Export-Filter}
+            '1' {Load-Filter}
+            '2' {Write-Lame-Menu-Filter-Edit}
+            '4' {Write-Host "Filtering Logs..."; Filter-Logs}
         }
     
     } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
@@ -568,8 +571,6 @@ function Filter-Logs {
     }
 }
 
-# TODO
-
 function Display-Logs {
     Write-Output "============"
     Write-Output " Log Counts "
@@ -596,11 +597,13 @@ function Display-Logs {
     Read-Host
 }
 
+
+# TODO
+
 function Not-Yet-Implemented {
     Write-Host "TODO: This ¯\_(ツ)_/¯"
     Read-Host
 }
-
 
 # Command Line Interface backbone
 
@@ -612,7 +615,15 @@ $script:FilteredLogs = Create-Log-Struct
 Write-Lame-Menu-Main
 
 
-<# fancy menu for later 
+<# fancy menu for later
+    
+    Issues:
+        variables do not seem to be accessible in their current state when used
+            should be fixed when refactored to not use global variables
+        
+        menu needs a user experience overhaul
+            use the title option to set a header up
+            possibly a help menu or tag on the main menu 
 
 function Load-Menu {
     Write-Menu -Title 'Whodunnit > Load >' -Entries @{
@@ -622,8 +633,7 @@ function Load-Menu {
     }
 }
 
-function Filter-Menu-Edit {
-    
+function Filter-Menu-Edit {    
     Write-Menu -Title "Whodunnit > Filter > Edit >" -Entries @{
         'Username' = 'Change-Filter-User';
         'Time Window' = 'Change-Filter-Time'
@@ -637,27 +647,17 @@ function Filter-Menu {
     Write-Menu -Title "Whodunnit > Filter >" -Entries @{
         'Export' = 'Export-Filter'
         'Load' = 'Load-Filter'
-        'Edit' = 'Filter-Menu-Edit';
-                
-        
-    
+        'Edit' = 'Filter-Menu-Edit';    
     }
-
 }
 
 
 do {
     $menuReturn = Write-Menu -Title 'Whodunnit >' -Entries @{
         'Load Logs' = 'Load-Menu';
-
-        'Active Filter' = 'Filter-Menu';
-        
-
-        'Display Logs' = ''
-
+        'Active Filter' = 'Filter-Menu';        
+        'Display Logs' = '';
         'Export Logs' = 'Export-Logs';
     }
 } while ($True)
-
-
 #>
