@@ -22,7 +22,7 @@ function Write-Lame-Menu-Main {
         switch($UserInput) {
             '1' {Write-Lame-Menu-Load}
             '2' {Write-Lame-Menu-Filter}
-            '3' {}
+            '3' {Display-Logs}
             '4' {Export-Logs}
         }
     
@@ -48,8 +48,8 @@ function Write-Lame-Menu-Load {
         $UserInput = Read-Host "whodunnit> Load> "
         
         switch($UserInput) {
-            '1' {}
-            '2' {Read-From-Local}
+            '1' {Import-Logs}
+            '2' {Read-From-Local; Return}
             '3' {Write-Host "TODO: This ¯\_(ツ)_/¯";Read-Host}
             '4' {Return}
         }
@@ -117,45 +117,6 @@ function Write-Lame-Menu-Filter-Edit {
     
     Write-Output "Filtering Logs..."
     Filter-Logs
-}
-
-function Write-Lame-Menu-Display {
-
-    do {
-        Clear-Host
-        Write-Host "============================="
-        Write-Host "     Whodunnit > Display"
-        Write-Host "============================="
-        Write-Host
-        Write-Host "1) Application Events"
-        Write-Host "2) Hardware Events"
-        Write-Host "3) Security Events"
-        Write-Host "4) System Events"
-        Write-Host "5) Internet Explorer"
-        Write-Host "6) Key Management"
-        Write-Host "7) OAlerts"
-        Write-Host "8) Windows Azure"
-        Write-Host "9) Windows Powershell"
-        Write-Host "0) Back"
-        Write-Host
-
-    
-        $UserInput = Read-Host "whodunnit> display> "
-        
-        switch($UserInput) {
-            '1' {}
-            '2' {}
-            '3' {}
-            '4' {}
-            '5' {}
-            '6' {}
-            '7' {}
-            '8' {}
-            '9' {}
-        }
-    
-    } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5" -and $UserInput -ne "6" -and $UserInput -ne "7" -and $UserInput -ne "8" -and $UserInput -ne "9" )
-
 }
 
 
@@ -292,7 +253,7 @@ function Change-Filter-User {
             $NewUsers += ($NewUser)
         }
 
-        $CurrentFilter.Usernames = $NewUsers
+        $script:CurrentFilter.Usernames = $NewUsers
 
     } while ($NewUser -ne "")
 }
@@ -509,6 +470,11 @@ function Export-Logs {
 
 }
 
+function Import-Logs {
+    $filePath = Read-Host "whodunnit > load> file path> "
+    $Logs = Import-Clixml -LiteralPath $filePath
+}
+
 
 # Helper Functions
 
@@ -549,12 +515,15 @@ function Filter-Logs {
 
                 foreach ($log in $currentType) {
                     
+                    
                     # Skip non null username values, and users in the usernames list
                     if ($log.Username -ne $null) {
                         if ($CurrentFilter.Usernames.Contains($log.UserName.split('\')[1])) {
                             continue
                         }
                     }
+                    
+                    
 
                     # Exclude logs created before specified time range
                     if ($CurrentFilter.TimeStart -ne $null){
@@ -563,30 +532,35 @@ function Filter-Logs {
                         }
                     }
                     
+
                     # Exclude logs created after specified time range
                     if ($CurrentFilter.TimeEnd -ne $null) {
                         if ($log.TimeGenerated -gt $CurrentFilter.TimeEnd) {
                             continue
                         }
                     }
-
+                    
+                    
                     # Include logs with matching event codes, unless * is in the event codes
                     if (-not $CurrentFilter.EventCodes.Contains("*")) {
                         if (-not $CurrentFilter.EventCodes.Contains($log.EventID)) {
                             continue
                         }
                     }
+                    
 
+                    <#
                     # Exclude unseleted types
-                    if (-not $CurrentFilter.EventTypes.Contains($log.EventTypes)) {
-                        continue
-                    }
-
+                    if ($CurrentFilter.EventTypes.Contains($log.EventTypes)) {
+                        
+                    } else {continue}
+                    #>
 
                     # Additional Filter Criteria go here
 
 
                     $script:FilteredLogs.$logtype += $log
+                    $script:FilteredLogs.Loaded = $true
                     
                 }
             }
@@ -597,7 +571,14 @@ function Filter-Logs {
 # TODO
 
 function Display-Logs {
-    
+    $Logs
+    $FilteredLogs
+    Read-Host
+}
+
+function Not-Yet-Implemented {
+    Write-Host "TODO: This ¯\_(ツ)_/¯"
+    Read-Host
 }
 
 
@@ -611,30 +592,52 @@ $script:FilteredLogs = Create-Log-Struct
 Write-Lame-Menu-Main
 
 
+<# fancy menu for later 
 
-<# Very Fancy Menu. Will be implemented after everything else works
-
-$menuReturn = Write-Menu -Title 'Whodunnit' -Entries @{
-    'Load Logs' = @{
-        'Read from File' = @(<#ReadFromFileFunc>)
-        'Read from Local Machine' = @(<#ReadFromLoaclFunc>)
-        'Read from Remote Machine' = @(<#ReadFromRemoteFunc>)
+function Load-Menu {
+    Write-Menu -Title 'Whodunnit > Load >' -Entries @{
+        'Read from File' = 'Not-Yet-Implemented'
+        'Read from Local Machine' = 'Read-From-Local';
+        'Read from Remote Machine' = 'Not-Yet-Implemented'
     }
-
-    'Active Filter' = @{
-        'Export' = (Export-Filter)
-        'Load' = @(Load-Filter)
-        'Current Filter' = @{
-            'Username' = @(Change-Filter-User)
-            'Time Window' = @(Change-Filter-Time)
-            'Event Codes' = @(<#CodeFilterFunc>)
-            'Event Types' = @(<#TypeFilterFunc>)
-        }
-    }
-
-    'Display Logs' = @(<#DisplayFunc>)
-
-    'Export Logs' = @(<#ExportLogFunc>)
 }
+
+function Filter-Menu-Edit {
+    
+    Write-Menu -Title "Whodunnit > Filter > Edit >" -Entries @{
+        'Username' = 'Change-Filter-User';
+        'Time Window' = 'Change-Filter-Time'
+        'Event Codes' = 'Change-Filter-EventCodes'
+        'Event Types' = 'Change-Filter-EventTypes'
+        'Event Sources' = 'Change-Filter-EventSources'  
+    }
+}
+
+function Filter-Menu {
+    Write-Menu -Title "Whodunnit > Filter >" -Entries @{
+        'Export' = 'Export-Filter'
+        'Load' = 'Load-Filter'
+        'Edit' = 'Filter-Menu-Edit';
+                
+        
+    
+    }
+
+}
+
+
+do {
+    $menuReturn = Write-Menu -Title 'Whodunnit >' -Entries @{
+        'Load Logs' = 'Load-Menu';
+
+        'Active Filter' = 'Filter-Menu';
+        
+
+        'Display Logs' = ''
+
+        'Export Logs' = 'Export-Logs';
+    }
+} while ($True)
+
 
 #>
