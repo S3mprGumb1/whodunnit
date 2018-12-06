@@ -571,8 +571,28 @@ function Filter-Logs {
 # TODO
 
 function Display-Logs {
-    $Logs
-    $FilteredLogs
+    Write-Output "============"
+    Write-Output " Log Counts "
+    Write-Output "============"
+    Write-Output "Logtype              Unfiltered Count  Filtered Count"
+    Write-Output "+---------------------------------------------------+"
+    foreach ($logtype in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
+        
+        Write-Host -NoNewline "| "
+
+        $FiltCount = $FilteredLogs.$logtype.Count.ToString()
+        $Count = $Logs.$logtype.Count.ToString()
+
+
+        $logtype = $logtype.PadRight(26, " ")
+        $FiltCount = $FiltCount.PadLeft(18 - $Count.Length, " ")
+
+        Write-Host "$logtype $Count $FiltCount" -NoNewline
+        Write-Host "    |"
+
+    }
+
+    Write-Output "+---------------------------------------------------+"
     Read-Host
 }
 
