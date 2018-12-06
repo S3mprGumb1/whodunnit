@@ -12,8 +12,8 @@ Key
 
 Interactive mode Menu Options
 ```	
-- Read In Log Files
-	- Read from File
++ Read In Log Files
+	+ Read from File
 	+ Read from Local Machine
 	? Read from Remote Machine
 		?Requires PSRemoting
@@ -36,16 +36,16 @@ Interactive mode Menu Options
 		+ Type
 			+Positive Selection
 		
-		? Source 
-			?Positive Selection
-			?Negative Selection
+		+ Source 
+			+Positive Selection
 			
-- Display Log Files
-	- Log files which match the active filter
+			
++ Display Log Files
+	+ Log files which match the active filter
 		
-- Export Log Files
-	- Export all Read Log files
-	- Export all Log files that match active filter
++ Export Log Files
+	+ Export all Read Log files
+	+ Export all Log files that match active filter
 ```
 
 Command Line Interface
