@@ -199,15 +199,15 @@ function Read-From-Local {
         
         
         switch ($i) {
-            0 {$script:Logs.Application = Read-Local-Helper("Application")}
-            1 {$script:Logs.HardwareEvents = Read-Local-Helper("HardwareEvents")}
-            2 {$script:Logs.InternetExplorer = Read-Local-Helper('Internet Explorer')}
-            3 {$script:Logs.KeyManagement = Read-Local-Helper('Key Management Service')}
-            4 {$script:Logs.OAlerts = Read-Local-Helper('OAlerts')}
-            5 {$script:Logs.System = Read-Local-Helper('System')}
-            6 {$script:Logs.WindowsAzure = Read-Local-Helper('Windows Azure')}
-            7 {$script:Logs.WindowsPowershell = Read-Local-Helper('Windows PowerShell')}
-            8 {$script:Logs.Security = Read-Local-Helper('Security')}
+            0 {$script:Logs.Application = Read-Local-Script("Application")}
+            1 {$script:Logs.HardwareEvents = Read-Local-Script("HardwareEvents")}
+            2 {$script:Logs.InternetExplorer = Read-Local-Script('Internet Explorer')}
+            3 {$script:Logs.KeyManagement = Read-Local-Script('Key Management Service')}
+            4 {$script:Logs.OAlerts = Read-Local-Script('OAlerts')}
+            5 {$script:Logs.System = Read-Local-Script('System')}
+            6 {$script:Logs.WindowsAzure = Read-Local-Script('Windows Azure')}
+            7 {$script:Logs.WindowsPowershell = Read-Local-Script('Windows PowerShell')}
+            8 {$script:Logs.Security = Read-Local-Script('Security')}
 
         }
     
@@ -221,10 +221,6 @@ function Read-From-Local {
 
     $Logs
 
-}
-
-function Export-Filter {
-    Export-Filter-Helper(Read-Host "whodunnit> filter> export path> ")
 }
 
 function Import-Filter {
@@ -255,12 +251,58 @@ function Import-Logs {
             if ($UserInput -ne "y" -and $UserInput -ne "yes") {Return}
         }
         $script:Logs = Read-Logs-From-File-Helper(Read-Host "whodunnit> load> import path> ")
+        return
     }
 
     Read-Logs-From-File-Helper(Read-Host "log import path> ")
 }
 
+function Export-Logs-Script {
+    param ($InputObject, $path)
+    Export-Clixml -InputObject $InputObject -LiteralPath $path
+}
+
+function Read-Local-Script {
+    param ($LogType)
+
+    $LogCounts = (Get-EventLog -List | Where-Object Log -EQ $LogType).Entries.Count
+
+    if ($LogCounts -eq 0) {Return $null}
+
+    Return Get-EventLog -LogName $LogType 
+}
+
+function Export-Filter-Script {
+    param ($FilePath, $Filter)
+
+    Export-Clixml -LiteralPath $FilePath -InputObject $Filter
+}
+
+function Read-Logs-From-File-Helper{
+    param ($FilePath)
+    return Import-Clixml -LiteralPath $FilePath
+}
+
+
 # Subroutines
+
+function Export-Filter {
+
+    if ($script:UseGlobals -eq $true) {
+        Export-Filter-Script (Read-Host "whodunnit> filter> export path> ") $CurrentFilter
+        return
+    }
+    
+    if ($script:UseGlobals -eq $false) {
+        Write-Error `
+                "Function: 'Export-Filter' cannot be imported; it requires the use of global variables in an interactive environment. 
+                Use Export-Filter-Script instead.
+                "
+        Read-Host
+        return
+    }
+
+}
 
 function Edit-Filter-User {
     
@@ -507,54 +549,25 @@ function Export-Logs {
             Read-Host "++ No Logs are Loaded! Cannot Export ++"
             Return
         }
-
+        
         $exType = Read-Host "whodunnit> export all?> "
         $filePath = Read-Host "whodunnit> export path> "
     
         # Export all logs
         if ($exType -eq "y" -or $exType -eq "yes") {
-            Export-Logs-Helper($Logs, $filePath)
+            Export-Logs-Script $script:Logs $filePath
         } elseif ($exType -eq "n" -or $exType -eq "no") {
-            Export-Logs-Helper($FilteredLogs, $filePath)
+            Export-Logs-Script $script:FilteredLogs $filePath
         }
         return 
     }
 
-    Export-Logs-Helper($logs, $path)
+    Export-Logs-Script $logs $path
     
 }
 
+
 # Helper Functions
-
-function Export-Logs-Helper {
-    param ($InputObject, $Path)
-
-    Export-Clixml -InputObject $InputObject -LiteralPath $Path
-
-}
-
-
-function Read-Local-Helper {
-    param ($LogType)
-
-    $LogCounts = (Get-EventLog -List | Where-Object Log -EQ $LogType).Entries.Count
-
-    if ($LogCounts -eq 0) {Return $null}
-
-    Return Get-EventLog -LogName $LogType 
-}
-
-function Export-Filter-Helper {
-    param ($FilePath)
-
-    Export-Clixml -LiteralPath $FilePath -InputObject $CurrentFilter
-
-}
-
-function Read-Logs-From-File-Helper{
-    param ($FilePath)
-    return Import-Clixml -LiteralPath $FilePath
-}
 
 function Filter-Logs {
 
@@ -651,6 +664,7 @@ function Show-Log-Stats {
 }
 
 
+
 # TODO
 
 function Not-Yet-Implemented {
@@ -667,9 +681,9 @@ $script:UseGlobals = $false
 $script:CurrentFilter = Initialize-Filter(@(),"","",@(),@())
 $script:Logs = Initialize-Log-Struct
 $script:FilteredLogs = Initialize-Log-Struct
-#Write-Lame-Menu-Main
+Write-Lame-Menu-Main
 
-Import-Filter
+#Import-Filter
 
 
 <# fancy menu for later
