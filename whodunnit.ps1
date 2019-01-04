@@ -161,16 +161,20 @@ function Create-Log-Struct {
 }
 
 
-# Subroutines
-function Read-From-Local {
-    if ($Logs.Loaded) {
-        Write-Host "Logs are already loaded!"
-        $UserInput = Read-Host "Overwrite? [y/n]"
+# Dot Sourceable Subroutines
 
-        if ($UserInput -ne "y" -and $UserInput -ne "yes") {Return}
+function Read-From-Local {
+
+    if ($script:DotSourced -eq $false) {
+        if ($Logs.Loaded) {
+            Write-Host "Logs are already loaded!"
+            $UserInput = Read-Host "Overwrite? [y/n]"
+
+            if ($UserInput -ne "y" -and $UserInput -ne "yes") {Return}
+        }
     }
 
-    $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+    
     $LogTypes = "Application", "HardwareEvents", "Internet Explorer", "Key Management Service", "OAlerts", "System", "Windows Azure", "Windows PowerShell", "Security"
     
     for ($i = 0; $i -lt $LogTypes.Length; $i++) {
@@ -183,12 +187,16 @@ function Read-From-Local {
                         -PercentComplete ($Count / 9 * 100) `
                         -Id 1
 
+
         if ($LogType -eq "Security") {
+
+            $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
             if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-                Write-Host "Warning! Insignificant priviledges to load security logs!"
+                if ($script:DotSourced -eq $false) { Write-Host "Warning! Insignificant priviledges to load security logs!"; }
                 Continue
             }
         }
+        
         
         switch ($i) {
             0 {$script:Logs.Application = Read-Local-Helper("Application")}
@@ -205,10 +213,19 @@ function Read-From-Local {
     
     }
 
-    $Logs.Loaded = $true
-    Write-Progress -Activity "Loading Event Logs from Local Host" -Id 1 -Completed
+    if ($script:DotSourced -eq $false) {
+        $Logs.Loaded = $true
+        Write-Progress -Activity "Loading Event Logs from Local Host" -Id 1 -Completed
+        return
+    }
+
+    $Logs
 
 }
+
+
+# Subroutines
+
 
 function Export-Filter {
 	<# Handles exporting the filter to a file      >
@@ -608,11 +625,15 @@ function Not-Yet-Implemented {
 # Command Line Interface backbone
 
 
+$script:DotSourced = $false
+#$script:DotSourced = $true
 
 $script:CurrentFilter = Create-Filter(@(),"","",@(),@())
 $script:Logs = Create-Log-Struct
 $script:FilteredLogs = Create-Log-Struct
 Write-Lame-Menu-Main
+
+#Read-From-Local
 
 
 <# fancy menu for later
