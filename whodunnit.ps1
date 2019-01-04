@@ -3,6 +3,65 @@
 #. $PSScriptRoot\Write-Menu\Write-Menu.ps1
 
 
+Param (
+    [parameter(Mandatory=$true, ParameterSetName = "ImportFromFile")]
+        [ValidateNotNullOrEmpty()]
+        [alias("Input-File")]
+        [String]$i,
+    
+    [parameter(Mandatory=$false, ParameterSetName = "ImportFromFile")]
+    [parameter(ParameterSetName = "ImportFromLocal")]
+    [parameter(ParameterSetName = "CreateFilter")]
+    [parameter(ParameterSetName = "LoadRemote")]
+        [ValidateNotNullOrEmpty()]
+        [alias("Filter-File")]
+        [String]$f,
+    
+    [parameter(Mandatory=$false, ParameterSetName = "ImportFromFile")]
+    [parameter(ParameterSetName = "ImportFromLocal")]
+    [parameter(ParameterSetName = "CreateFilter")]
+    [parameter(ParameterSetName = "LoadRemote")]
+        [ValidateNotNullOrEmpty()]
+        [alias("Output-File")]
+        [String]$o,
+
+    [parameter(Mandatory=$true, ParameterSetName = "ImportFromLocal")]
+        [alias("Load-Local")]
+        [switch]$l = $false,
+    
+    [parameter(Mandatory=$true, ParameterSetName = "CreateFilter")]
+        [alias("Create-Filter")]
+        [switch]$c = $false,
+
+    [parameter(Mandatory=$true, ParameterSetName = "LoadRemote")]
+        [alias("Remote-IP")]
+        [String]$r,
+
+    [parameter(Mandatory=$true, ParameterSetName = "LoadRemote")]
+        [alias("Username")]
+        [String]$u,
+    
+    [parameter(Mandatory=$true, ParameterSetName = "LoadRemote")]
+        [alias("Password")]
+        [String]$p = $(Read-Host "Input remote password> ")
+)
+
+if ($args.Count -eq 0) {
+    $script:UseGlobals = $false
+    #$script:UseGlobals = $true
+    
+    $script:CurrentFilter = Initialize-Filter(@(),"","",@(),@())
+    $script:Logs = Initialize-Log-Struct
+    $script:FilteredLogs = Initialize-Log-Struct
+    Write-Lame-Menu-Main
+}
+
+if ($args.Count -eq 1) {
+    
+
+}
+
+
 # Menu Functions
 function Write-Lame-Menu-Main {
 
@@ -675,15 +734,6 @@ function Not-Yet-Implemented {
 # Command Line Interface backbone
 
 
-$script:UseGlobals = $false
-#$script:UseGlobals = $true
-
-$script:CurrentFilter = Initialize-Filter(@(),"","",@(),@())
-$script:Logs = Initialize-Log-Struct
-$script:FilteredLogs = Initialize-Log-Struct
-Write-Lame-Menu-Main
-
-#Import-Filter
 
 
 <# fancy menu for later
