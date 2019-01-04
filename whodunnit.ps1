@@ -24,7 +24,7 @@ function Write-Lame-Menu-Main {
         switch($UserInput) {
             '1' {Write-Lame-Menu-Load}
             '2' {Write-Lame-Menu-Filter}
-            '3' {Display-Logs}
+            '3' {Show-Log-Stats}
             '4' {Export-Logs}
         }
     
@@ -80,7 +80,7 @@ function Write-Lame-Menu-Filter {
         
         switch($UserInput) {
             '3' {Export-Filter}
-            '1' {Load-Filter}
+            '1' {Import-Filter}
             '2' {Write-Lame-Menu-Filter-Edit}
             '4' {Write-Host "Filtering Logs..."; Filter-Logs}
         }
@@ -109,11 +109,11 @@ function Write-Lame-Menu-Filter-Edit {
         $UserInput = Read-Host "whodunnit> filter> edit> "
         
         switch($UserInput) {
-            '1' {Change-Filter-User}
-            '2' {Change-Filter-Time}
-            '3' {Change-Filter-EventCodes}
-            '4' {Change-Filter-EventTypes}
-            '5' {Change-Filter-EventSources}
+            '1' {Edit-Filter-User}
+            '2' {Edit-Filter-Time}
+            '3' {Edit-Filter-EventCodes}
+            '4' {Edit-Filter-EventTypes}
+            '5' {Edit-Filter-EventSources}
         }
     
     } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5")
@@ -127,7 +127,7 @@ function Write-Lame-Menu-Filter-Edit {
 # Productive Functions #
 
 # Constructors
-function Create-Filter {
+function Initialize-Filter {
     param ($Usernames, $TimeStart, $TimeEnd, $EventCodes, $EventTypes, $EventSources)
 
     $filter = New-Object psobject
@@ -142,7 +142,7 @@ function Create-Filter {
     return $filter
 }
 
-function Create-Log-Struct {
+function Initialize-Log-Struct {
     
     $logs = New-Object psobject
 
@@ -165,7 +165,7 @@ function Create-Log-Struct {
 
 function Read-From-Local {
 
-    if ($script:DotSourced -eq $false) {
+    if ($script:UseGlobals -eq $true) {
         if ($Logs.Loaded) {
             Write-Host "Logs are already loaded!"
             $UserInput = Read-Host "Overwrite? [y/n]"
@@ -192,7 +192,7 @@ function Read-From-Local {
 
             $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
             if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-                if ($script:DotSourced -eq $false) { Write-Host "Warning! Insignificant priviledges to load security logs!"; }
+                if ($script:UseGlobals -eq $true) { Write-Host "Warning! Insignificant priviledges to load security logs!"; }
                 Continue
             }
         }
@@ -213,7 +213,7 @@ function Read-From-Local {
     
     }
 
-    if ($script:DotSourced -eq $false) {
+    if ($script:UseGlobals -eq $true) {
         $Logs.Loaded = $true
         Write-Progress -Activity "Loading Event Logs from Local Host" -Id 1 -Completed
         return
@@ -223,32 +223,57 @@ function Read-From-Local {
 
 }
 
-
-# Subroutines
-
-
 function Export-Filter {
-	<# Handles exporting the filter to a file      >
-	<  Takes a user input for the filepath         >
-	<  Then writes the current filter to the path #>
     Export-Filter-Helper(Read-Host "whodunnit> filter> export path> ")
 }
 
-function Load-Filter {
+function Import-Filter {
 	<# Handles loading a filter from a file                     >
 	<  Takes a user input for the filepath                      >
 	<  Then loads the filter in the file to the current filter #>
-	$script:CurrentFilter = Load-Filter-Helper(Read-Host "whodunnit> filter> import path> ")
-    Write-Output "Filtering Logs..."
-    Filter-Logs
+
+    if ($script:UseGlobals -eq $true) {
+	    $script:CurrentFilter = Import-Filter-Helper(Read-Host "whodunnit> filter> import path> ")
+        Write-Output "Filtering Logs..."
+        Filter-Logs
+
+    } else {
+
+        Import-Filter-Helper(Read-Host "filter import path> ")
+    }
+    
+
 }
 
-function Load-Filter-Helper {
+function Import-Filter-Helper {
     param ($FilePath)
     return Import-Clixml -LiteralPath $FilePath
 }
 
-function Change-Filter-User {
+function Read-Logs-From-File {
+    
+    if ($script:UseGlobals -eq $true) {
+        if ($Logs.Loaded) {
+            Write-Host "Logs are already loaded!"
+            $UserInput = Read-Host "Overwrite? [y/n]"
+
+            if ($UserInput -ne "y" -and $UserInput -ne "yes") {Return}
+        }
+        $script:Logs = Read-Logs-From-File-Helper(Read-Host "whodunnit> load> import path> ")
+    }
+
+    Read-Logs-From-File-Helper(Read-Host "log import path> ")
+}
+
+# Subroutines
+
+function Edit-Filter-User {
+    
+    if ($script:UseGlobals -eq $false) {
+        Write-Error "Function: 'Edit-Filter-User' cannot be imported; it requires the use of global variables in an interactive environment. "
+        return
+    }
+    
 	<# Takes a user input to change the global variable $Username #>
     do {
         Clear-Host
@@ -278,10 +303,15 @@ function Change-Filter-User {
     } while ($NewUser -ne "")
 }
 
-function Change-Filter-Time {
+function Edit-Filter-Time {
 	<# Takes a user input for a start and end date (optional time format?)    >
 	<  Then updates the global variables $TimeWindowStart and $TimeWindowEnd #>
-    
+
+    if ($script:UseGlobals -eq $false) {
+        Write-Error "FunctiEdit' cannot be imported; it requires the use of global variables in an interactive environment. "
+        return
+    }
+
     do {
 
         $timeTemplate = "M/dd/yyyy H:mm"
@@ -331,8 +361,13 @@ function Change-Filter-Time {
     } while($type -ne "")
 }
 
-function Change-Filter-EventTypes {
-
+function Edit-Filter-EventTypes {
+    
+    if ($script:UseGlobals -eq $false) {
+        Write-Error "Function: 'Edit-Filter-EventTypes' cannot be imported; it requires the use of global variables in an interactive environment. "
+        return
+    }
+    
     do {
         Clear-Host
         Write-Host "Event Types Included:"
@@ -377,8 +412,14 @@ function Change-Filter-EventTypes {
 
 }
 
-function Change-Filter-EventCodes {
-   do {
+function Edit-Filter-EventCodes {
+
+    if ($script:UseGlobals -eq $false) {
+        Write-Error "FunctiEdit' cannot be imported; it requires the use of global variables in an interactive environment. "
+        return
+    }
+
+    do {
         Clear-Host
         Write-Host "Positive Search Event Codes:"
 
@@ -407,7 +448,13 @@ function Change-Filter-EventCodes {
     } while ($NewCodes -ne "") 
 }
 
-function Change-Filter-EventSources {
+function Edit-Filter-EventSources {
+
+    if ($script:UseGlobals -eq $false) {
+        Write-Error "FunctiEdit' cannot be imported; it requires the use of global variables in an interactive environment. "
+        return
+    }
+
     do {
         Clear-Host
         Write-Host "Event Types Included:"
@@ -457,37 +504,27 @@ function Change-Filter-EventSources {
 
 }
 
-function Read-Logs-From-File {
-    
-    if ($Logs.Loaded) {
-        Write-Host "Logs are already loaded!"
-        $UserInput = Read-Host "Overwrite? [y/n]"
-
-        if ($UserInput -ne "y" -and $UserInput -ne "yes") {Return}
-    }
-
-
-    $script:Logs = Read-Logs-From-File-Helper(Read-Host "whodunnit> load> import path> ")
-
-}
-
 function Export-Logs {
-
-    if ($Logs.Loaded -eq $False) {
-        Read-Host "++ No Logs are Loaded! Cannot Export ++"
-        Return
-    }
-
-    $exType = Read-Host "whodunnit> export all?> "
-    $filePath = Read-Host "whodunnit> export path> "
     
-    # Export all logs
-    if ($exType -eq "y" -or $exType -eq "yes") {
-        Export-Clixml -InputObject $Logs -LiteralPath $filePath
-    } elseif ($exType -eq "n" -or $exType -eq "no") {
-        Export-Clixml -InputObject $FilteredLogs -LiteralPath $filePath
+    if ($script:UseGlobals -eq $true) { 
+        if ($script:Logs.Loaded -eq $False) {
+            Read-Host "++ No Logs are Loaded! Cannot Export ++"
+            Return
+        }
+
+        $exType = Read-Host "whodunnit> export all?> "
+        $filePath = Read-Host "whodunnit> export path> "
+    
+        # Export all logs
+        if ($exType -eq "y" -or $exType -eq "yes") {
+            Export-Helper($Logs, $filePath)
+        } elseif ($exType -eq "n" -or $exType -eq "no") {
+            Export-Helper($FilteredLogs, $filePath)
+        }
+        return 
     }
 
+    
 }
 
 function Import-Logs {
@@ -498,10 +535,18 @@ function Import-Logs {
 
 # Helper Functions
 
+function Export-Helper {
+    param ($InputObject, $Path)
+
+    Export-Clixml -InputObject $InputObject -LiteralPath $Path
+
+}
+
+
 function Read-Local-Helper {
     param ($LogType)
 
-    $LogCounts = (Get-EventLog -List | Where Log -EQ $LogType).Entries.Count
+    $LogCounts = (Get-EventLog -List | Where-Object Log -EQ $LogType).Entries.Count
 
     if ($LogCounts -eq 0) {Return $null}
 
@@ -588,7 +633,7 @@ function Filter-Logs {
     }
 }
 
-function Display-Logs {
+function Show-Log-Stats {
     Write-Output "============"
     Write-Output " Log Counts "
     Write-Output "============"
@@ -625,15 +670,15 @@ function Not-Yet-Implemented {
 # Command Line Interface backbone
 
 
-$script:DotSourced = $false
-#$script:DotSourced = $true
+$script:UseGlobals = $false
+#$script:UseGlobals = $true
 
-$script:CurrentFilter = Create-Filter(@(),"","",@(),@())
-$script:Logs = Create-Log-Struct
-$script:FilteredLogs = Create-Log-Struct
-Write-Lame-Menu-Main
+$script:CurrentFilter = Initialize-Filter(@(),"","",@(),@())
+$script:Logs = Initialize-Log-Struct
+$script:FilteredLogs = Initialize-Log-Struct
+#Write-Lame-Menu-Main
 
-#Read-From-Local
+Import-Filter
 
 
 <# fancy menu for later
@@ -656,18 +701,18 @@ function Load-Menu {
 
 function Filter-Menu-Edit {    
     Write-Menu -Title "Whodunnit > Filter > Edit >" -Entries @{
-        'Username' = 'Change-Filter-User';
-        'Time Window' = 'Change-Filter-Time'
-        'Event Codes' = 'Change-Filter-EventCodes'
-        'Event Types' = 'Change-Filter-EventTypes'
-        'Event Sources' = 'Change-Filter-EventSources'  
+        'Username' = 'Edit-Filter-User';
+        'Time WindowEdit'
+        'Event CodesEdit'
+        'Event Types' = 'Edit-Filter-EventTypes'
+        'Event SourcesEdit'  
     }
 }
 
 function Filter-Menu {
     Write-Menu -Title "Whodunnit > Filter >" -Entries @{
         'Export' = 'Export-Filter'
-        'Load' = 'Load-Filter'
+        'Load' = 'Import-Filter'
         'Edit' = 'Filter-Menu-Edit';    
     }
 }
