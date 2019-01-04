@@ -228,9 +228,6 @@ function Export-Filter {
 }
 
 function Import-Filter {
-	<# Handles loading a filter from a file                     >
-	<  Takes a user input for the filepath                      >
-	<  Then loads the filter in the file to the current filter #>
 
     if ($script:UseGlobals -eq $true) {
 	    $script:CurrentFilter = Import-Filter-Helper(Read-Host "whodunnit> filter> import path> ")
@@ -242,7 +239,6 @@ function Import-Filter {
         Import-Filter-Helper(Read-Host "filter import path> ")
     }
     
-
 }
 
 function Import-Filter-Helper {
@@ -250,8 +246,7 @@ function Import-Filter-Helper {
     return Import-Clixml -LiteralPath $FilePath
 }
 
-function Read-Logs-From-File {
-    
+function Import-Logs {
     if ($script:UseGlobals -eq $true) {
         if ($Logs.Loaded) {
             Write-Host "Logs are already loaded!"
@@ -505,7 +500,8 @@ function Edit-Filter-EventSources {
 }
 
 function Export-Logs {
-    
+    param($logs, $path)
+
     if ($script:UseGlobals -eq $true) { 
         if ($script:Logs.Loaded -eq $False) {
             Read-Host "++ No Logs are Loaded! Cannot Export ++"
@@ -517,25 +513,20 @@ function Export-Logs {
     
         # Export all logs
         if ($exType -eq "y" -or $exType -eq "yes") {
-            Export-Helper($Logs, $filePath)
+            Export-Logs-Helper($Logs, $filePath)
         } elseif ($exType -eq "n" -or $exType -eq "no") {
-            Export-Helper($FilteredLogs, $filePath)
+            Export-Logs-Helper($FilteredLogs, $filePath)
         }
         return 
     }
 
+    Export-Logs-Helper($logs, $path)
     
 }
 
-function Import-Logs {
-    $filePath = Read-Host "whodunnit > load> file path> "
-    $Logs = Import-Clixml -LiteralPath $filePath
-}
-
-
 # Helper Functions
 
-function Export-Helper {
+function Export-Logs-Helper {
     param ($InputObject, $Path)
 
     Export-Clixml -InputObject $InputObject -LiteralPath $Path
