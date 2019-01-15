@@ -62,6 +62,11 @@ if ($args.Count -eq 0) {
         return 
     }
 
+    if ($l) {
+        Export-Local-Logs $o $f
+        return
+    }
+
 
 
 }
@@ -86,10 +91,25 @@ function Export-Filter-CLI {
     if ($null -eq $FilterPath) {
         Write-Error "Error: Failed to Initialize Filter!"
     } else {
-        Write-Error 'Error: Failed to load filter from $FilterPath!'
+        Write-Error "Error: Failed to load filter from $FilterPath!"
     }
 }
 
+function Export-Local-Logs {
+    param ($OutPath, $FilterPath)
+
+    $filter = Import-Filter-Helper $FilterPath
+
+    if ($null -eq $filter) {
+        Write-Error "Error: Failed to load filter from $FilterPath"
+    }
+
+    $logs = Read-From-Local
+    ## TODO ##
+    # modify filter function to work with an input filter and log set
+    
+
+}
 
 # Menu Functions
 function Write-Lame-Menu-Main {
