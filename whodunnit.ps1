@@ -54,11 +54,40 @@ if ($args.Count -eq 0) {
     $script:Logs = Initialize-Log-Struct
     $script:FilteredLogs = Initialize-Log-Struct
     Write-Lame-Menu-Main
+
+} else {
+
+    if ($c) {
+        Export-Filter-CLI $o $f
+        return 
+    }
+
+
+
 }
 
-if ($args.Count -eq 1) {
-    
 
+# CLI Routines 
+
+function Export-Filter-CLI {
+    param ($FilePath, $FilterPath)
+
+    if ($null -eq $FilterPath) {
+        $Filter = Initialize-Filter
+    } else {
+        $Filter = Import-Filter-Helper $FilterPath
+    }
+
+    if ($null -ne $Filter) {
+        Export-Filter-Script $FilePath $Filter
+        return
+    } 
+
+    if ($null -eq $FilterPath) {
+        Write-Error "Error: Failed to Initialize Filter!"
+    } else {
+        Write-Error 'Error: Failed to load filter from $FilterPath!'
+    }
 }
 
 
