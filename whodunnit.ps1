@@ -67,7 +67,9 @@ if ($args.Count -eq 0) {
         return
     }
 
-
+    if ($r) {
+        Write-Error "Not Implemented yet... whoopsie"
+    }
 
 }
 
