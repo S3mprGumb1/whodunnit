@@ -1,7 +1,7 @@
 Whodunnit
 =========
 
-Parse, Filter and Present Windows Event Logs with Ease
+Parse, Filter and Present Windows Event Logs with ease, from the comfort and familiarity of a PowerShell Environment.
 
 Key
 ```
