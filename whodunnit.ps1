@@ -2,7 +2,12 @@
 # if I manage to get the commented block at the bottom working, this will be needed
 #. $PSScriptRoot\Write-Menu\Write-Menu.ps1
 
-
+<#
+    Parameter Declaration for CLI use.
+    ## TODO ## 
+    Add copy of Get-Help ./whodunnit.ps1 here
+    ## ODOT ##
+#>
 Param (
     [parameter(Mandatory=$true, ParameterSetName = "ImportFromFile")]
         [ValidateNotNullOrEmpty()]
@@ -46,16 +51,28 @@ Param (
         [String]$p = $(Read-Host "Input remote password> ")
 )
 
+# Set up for use in an interactive environment when no arguments passed
 if ($args.Count -eq 0) {
-    $script:UseGlobals = $false
-    #$script:UseGlobals = $true
+    $script:UseGlobals = $true
     $script:CurrentFilter = Initialize-Filter(@(),"","",@(),@())
     $script:Logs = Initialize-Log-Struct
     $script:FilteredLogs = Initialize-Log-Struct
     Write-Lame-Menu-Main
 
 } else {
+    CLI-Backbone
+}
 
+
+<#
+    Functions used by the command line interface
+    Contains the backbone for the CLI, and the subroutines used
+    To create filters, export local logs matching a filter, and
+    export remote logs matching a filter, when it's implemented
+#> 
+
+function CLI-Backbone {
+    
     if ($c) {
         Export-Filter-CLI $o $f
         return 
@@ -69,11 +86,7 @@ if ($args.Count -eq 0) {
     if ($r) {
         Write-Error "Not Implemented yet... whoopsie"
     }
-
 }
-
-
-# CLI Routines 
 
 function Export-Filter-CLI {
     param ($FilePath, $FilterPath)
@@ -112,7 +125,14 @@ function Export-Local-Logs {
     Export-Logs-Script $filtered $OutPath
 }
 
-# Menu Functions
+
+<#
+    Functions used to control the User Experience are here
+    Contains the backbone for the 'GUI' currently implemented
+    In the future, it will contain the fancier GUI, once it is functional
+    Will contain the logic to switch between the fancy and simple menu,
+    favoring the fancy menu where supported
+#>
 function Write-Lame-Menu-Main {
 
     do {
@@ -233,9 +253,9 @@ function Write-Lame-Menu-Filter-Edit {
 
 
 
-# Productive Functions #
-
-# Constructors
+<#
+    Contains the 'constructors' for the two different data structures used
+#>
 function Initialize-Filter {
     param ($Usernames, $TimeStart, $TimeEnd, $EventCodes, $EventTypes, $EventSources)
 
@@ -270,7 +290,18 @@ function Initialize-Log-Struct {
 }
 
 
-# Dot Sourceable Subroutines
+
+<#
+    The following functions *should* be functional in an environment that 
+    does not use global variables, i.e. imported into a third party script, 
+    or on the powershell CLI.
+
+    Due to the nature of powershell's weird method of determining returns, 
+    User interaction is not possible when these functions are used in their 
+    imported mode. When used with the variable '$script:UseGlobals', User
+    Interaction is enabled, however the functions assume the use of global variables,
+    and do not return anything helpful.
+#>
 
 function Read-From-Local {
 
@@ -475,8 +506,44 @@ function Filter-Logs-CLI {
     return $filteredSet
 }
 
+function Show-Log-Stats {
+    param ($logs, $filtered)
 
-# Subroutines
+    if ($script:UseGlobals) {
+        $logs = $script:Logs
+        $filtered = $script:FilteredLogs
+    }
+
+    Write-Output "============"
+    Write-Output " Log Counts "
+    Write-Output "============"
+    Write-Output "Logtype              Unfiltered Count  Filtered Count"
+    Write-Output "+---------------------------------------------------+"
+    foreach ($logtype in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
+        
+        Write-Host -NoNewline "| "
+
+        $FiltCount = $filtered.$logtype.Count.ToString()
+        $Count = $logs.$logtype.Count.ToString()
+
+
+        $logtype = $logtype.PadRight(26, " ")
+        $FiltCount = $filtered.PadLeft(18 - $Count.Length, " ")
+
+        Write-Host "$logtype $Count $FiltCount" -NoNewline
+        Write-Host "    |"
+    }
+
+    Write-Output "+---------------------------------------------------+"
+    if ($script:UseGlobals){ Read-Host }
+}
+
+
+
+<#
+    The following functions are not functional in an environment not 
+    utilizing global variables, as they require user interaction. 
+#>
 
 function Export-Filter {
 
@@ -755,51 +822,18 @@ function Export-Logs {
     return Export-Logs-Script $logs $path   
 }
 
-
-# Helper Functions
-
-
-
 function Filter-Logs {
     $script:FilteredLogs = Filter-Logs-CLI $script:Logs $script:CurrentFilter
 }
 
-function Show-Log-Stats {
-    Write-Output "============"
-    Write-Output " Log Counts "
-    Write-Output "============"
-    Write-Output "Logtype              Unfiltered Count  Filtered Count"
-    Write-Output "+---------------------------------------------------+"
-    foreach ($logtype in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
-        
-        Write-Host -NoNewline "| "
-
-        $FiltCount = $FilteredLogs.$logtype.Count.ToString()
-        $Count = $Logs.$logtype.Count.ToString()
 
 
-        $logtype = $logtype.PadRight(26, " ")
-        $FiltCount = $FiltCount.PadLeft(18 - $Count.Length, " ")
-
-        Write-Host "$logtype $Count $FiltCount" -NoNewline
-        Write-Host "    |"
-
-    }
-
-    Write-Output "+---------------------------------------------------+"
-    Read-Host
-}
-
-
-
-# TODO
-
+# Placeholder
 function Not-Yet-Implemented {
     Write-Host "TODO: This ¯\_(ツ)_/¯"
     Read-Host
 }
 
-# Command Line Interface backbone
 
 
 
@@ -807,12 +841,13 @@ function Not-Yet-Implemented {
 <# fancy menu for later
     
     Issues:
-        variables do not seem to be accessible in their current state when used
-            should be fixed when refactored to not use global variables
+    variables do not seem to be accessible in their current state when used
+        should be fixed when refactored to not use global variables
+            UPDATE (1/17/19): Unlikely to be fixed, unless a workaround to powershell returning all output is found. 
         
-        menu needs a user experience overhaul
-            use the title option to set a header up
-            possibly a help menu or tag on the main menu 
+    menu needs a user experience overhaul
+        use the title option to set a header up
+        possibly a help menu or tag on the main menu 
 
 function Load-Menu {
     Write-Menu -Title 'Whodunnit > Load >' -Entries @{
@@ -839,7 +874,6 @@ function Filter-Menu {
         'Edit' = 'Filter-Menu-Edit';    
     }
 }
-
 
 do {
     $menuReturn = Write-Menu -Title 'Whodunnit >' -Entries @{
