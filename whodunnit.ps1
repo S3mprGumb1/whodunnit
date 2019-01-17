@@ -49,7 +49,6 @@ Param (
 if ($args.Count -eq 0) {
     $script:UseGlobals = $false
     #$script:UseGlobals = $true
-    
     $script:CurrentFilter = Initialize-Filter(@(),"","",@(),@())
     $script:Logs = Initialize-Log-Struct
     $script:FilteredLogs = Initialize-Log-Struct
@@ -107,10 +106,10 @@ function Export-Local-Logs {
     }
 
     $logs = Read-From-Local
-    ## TODO ##
-    # modify filter function to work with an input filter and log set
     
+    $filtered = Filter-Logs-CLI $logs $filter
 
+    Export-Logs-Script $filtered $OutPath
 }
 
 # Menu Functions
@@ -393,6 +392,89 @@ function Read-Logs-From-File-Helper{
     return Import-Clixml -LiteralPath $FilePath
 }
 
+function Filter-Logs-CLI {
+    param ($logs, $filter)
+
+    if ($script:UseGlobals) {
+        $logs = $script:Logs
+        $filter = $script:CurrentFilter
+    }
+
+    # A new, empty log struct to store matching logs
+    $filteredSet = Initialize-Log-Struct
+
+
+    foreach ($logtype in $filter.EventSources) {
+
+        $found = 0
+        foreach ($event in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
+            
+            # Check if the log type is selected before filtering
+            if ($logtype.replace(' ', '') -eq $event){
+                
+                # Acquire the logs from the relevant source
+                $workingSet = $logs.$logtype
+
+                foreach ($log in $workingSet) {
+                    # for every log in the working set:
+                    #      1) Check Username vs the User list
+                    #      2) Check Event Time vs Start Time
+                    #      3) Check Event Time vs End Time
+                    #      4) Check Event Code vs List
+                    #      5) Check Event Type vs List
+                    
+                    # 1) Skip non null username values, and users in the usernames list
+                    if ($log.Username -ne $null) {
+                        if ($filter.Usernames.Contains($log.UserName.split('\')[1])) {
+                            continue
+                        }
+                    }
+
+                    # 2) Exclude logs created before specified time range
+                    if ($filter.TimeStart -ne $null){
+                        if ($log.TimeGenerated -lt $filter.TimeStart) {
+                            continue
+                        }
+                    }
+
+                    # 3) Exclude logs created after specified time range
+                    if ($filter.TimeEnd -ne $null) {
+                        if ($log.TimeGenerated -gt $filter.TimeEnd) {
+                            continue
+                        }
+                    }
+
+                    # 4) Include only logs with matching event codes, unless * is in the event codes
+                    if (-not $filter.EventCodes.Contains("*")) {
+                        if (-not $filter.EventCodes.Contains($log.EventID)) {
+                            continue
+                        }
+                    }
+
+                    # 5) Exclude unselected event types
+                    ## NEEDS TESTING ##
+                    <#
+                    if (-not $filter.EventTypes.Contains($log.EventTypes)) {
+                        continue
+                    } 
+                    #>
+                    
+                    <##
+                    Add additional filtration criteria here
+                    ##>
+
+                    # Only logs that match filter should make it here
+                    # Add current log to filtered set
+                    $filteredSet.$logtype += $log
+                }
+            }
+        }
+    }
+
+    # After all log types are filtered, return the log struct
+    return $filteredSet
+}
+
 
 # Subroutines
 
@@ -411,7 +493,6 @@ function Export-Filter {
         Read-Host
         return
     }
-
 }
 
 function Edit-Filter-User {
@@ -455,7 +536,7 @@ function Edit-Filter-Time {
 	<  Then updates the global variables $TimeWindowStart and $TimeWindowEnd #>
 
     if ($script:UseGlobals -eq $false) {
-        Write-Error "FunctiEdit' cannot be imported; it requires the use of global variables in an interactive environment. "
+        Write-Error "Function: Edit-Filter-Time' cannot be imported; it requires the use of global variables in an interactive environment. "
         return
     }
 
@@ -556,13 +637,12 @@ function Edit-Filter-EventTypes {
         $script:CurrentFilter.EventTypes = $NewEvents
     
     } while ($toggle -ne "")
-
 }
 
 function Edit-Filter-EventCodes {
 
     if ($script:UseGlobals -eq $false) {
-        Write-Error "FunctiEdit' cannot be imported; it requires the use of global variables in an interactive environment. "
+        Write-Error "Function: Edit-Filter-EventCodes' cannot be imported; it requires the use of global variables in an interactive environment. "
         return
     }
 
@@ -598,7 +678,7 @@ function Edit-Filter-EventCodes {
 function Edit-Filter-EventSources {
 
     if ($script:UseGlobals -eq $false) {
-        Write-Error "FunctiEdit' cannot be imported; it requires the use of global variables in an interactive environment. "
+        Write-Error "Function: Edit-Filter-EventSources' cannot be imported; it requires the use of global variables in an interactive environment. "
         return
     }
 
@@ -672,79 +752,16 @@ function Export-Logs {
         return 
     }
 
-    Export-Logs-Script $logs $path
-    
+    return Export-Logs-Script $logs $path   
 }
 
 
 # Helper Functions
 
+
+
 function Filter-Logs {
-
-    foreach ($logtype in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
-        
-        $found = 0
-        foreach ($event in $CurrentFilter.EventSources) {
-            if ($logtype -eq $event.replace(' ', '')) {
-                $currentType = $Logs.$logtype
-                
-                # Loop through all logs in this section
-                # for each element, call the check function to determine if it fits
-                # Returns true if the element is a match for the current filter
-
-                foreach ($log in $currentType) {
-                    
-                    
-                    # Skip non null username values, and users in the usernames list
-                    if ($log.Username -ne $null) {
-                        if ($CurrentFilter.Usernames.Contains($log.UserName.split('\')[1])) {
-                            continue
-                        }
-                    }
-                    
-                    
-
-                    # Exclude logs created before specified time range
-                    if ($CurrentFilter.TimeStart -ne $null){
-                        if ($log.TimeGenerated -lt $CurrentFilter.TimeStart) {
-                            continue
-                        }
-                    }
-                    
-
-                    # Exclude logs created after specified time range
-                    if ($CurrentFilter.TimeEnd -ne $null) {
-                        if ($log.TimeGenerated -gt $CurrentFilter.TimeEnd) {
-                            continue
-                        }
-                    }
-                    
-                    
-                    # Include logs with matching event codes, unless * is in the event codes
-                    if (-not $CurrentFilter.EventCodes.Contains("*")) {
-                        if (-not $CurrentFilter.EventCodes.Contains($log.EventID)) {
-                            continue
-                        }
-                    }
-                    
-
-                    <#
-                    # Exclude unseleted types
-                    if ($CurrentFilter.EventTypes.Contains($log.EventTypes)) {
-                        
-                    } else {continue}
-                    #>
-
-                    # Additional Filter Criteria go here
-
-
-                    $script:FilteredLogs.$logtype += $log
-                    $script:FilteredLogs.Loaded = $true
-                    
-                }
-            }
-        }
-    }
+    $script:FilteredLogs = Filter-Logs-CLI $script:Logs $script:CurrentFilter
 }
 
 function Show-Log-Stats {
