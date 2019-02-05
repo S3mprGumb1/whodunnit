@@ -42,17 +42,6 @@ Param (
 )
 
 # Set up for use in an interactive environment when no arguments passed
-if ($args.Count -eq 0) {
-    $script:UseGlobals = $true
-    $script:CurrentFilter = Initialize-Filter @() "" "" @() @()
-    $script:Logs = Initialize-Log-Struct
-    $script:FilteredLogs = Initialize-Log-Struct
-    Write-Lame-Menu-Main
-
-} else {
-    CLI-Backbone
-}
-
 
 <#
     Functions used by the command line interface
@@ -265,15 +254,15 @@ function Initialize-Log-Struct {
     
     $logs = New-Object psobject
 
-    $logs | Add-Member -type NoteProperty -Name Application -Value New-Object System.Collections.ArrayList
-    $logs | Add-Member -Type NoteProperty -Name HardwareEvents -Value New-Object System.Collections.ArrayList
-    $logs | Add-Member -Type NoteProperty -Name InternetExplorer -Value New-Object System.Collections.ArrayList
-    $logs | Add-Member -Type NoteProperty -Name KeyManagement -Value New-Object System.Collections.ArrayList
-    $logs | Add-Member -Type NoteProperty -Name OAlerts -Value New-Object System.Collections.ArrayList
-    $logs | Add-Member -Type NoteProperty -Name Security -Value New-Object System.Collections.ArrayList
-    $logs | Add-Member -Type NoteProperty -Name System -Value New-Object System.Collections.ArrayList
-    $logs | Add-Member -Type NoteProperty -Name WindowsAzure -Value New-Object System.Collections.ArrayList
-    $logs | Add-Member -Type NoteProperty -Name WindowsPowershell -Value New-Object System.Collections.ArrayList
+    $logs | Add-Member -type NoteProperty -Name Application -Value (New-Object System.Collections.ArrayList)
+    $logs | Add-Member -Type NoteProperty -Name HardwareEvents -Value (New-Object System.Collections.ArrayList)
+    $logs | Add-Member -Type NoteProperty -Name InternetExplorer -Value (New-Object System.Collections.ArrayList)
+    $logs | Add-Member -Type NoteProperty -Name KeyManagement -Value (New-Object System.Collections.ArrayList)
+    $logs | Add-Member -Type NoteProperty -Name OAlerts -Value (New-Object System.Collections.ArrayList)
+    $logs | Add-Member -Type NoteProperty -Name Security -Value (New-Object System.Collections.ArrayList)
+    $logs | Add-Member -Type NoteProperty -Name System -Value (New-Object System.Collections.ArrayList)
+    $logs | Add-Member -Type NoteProperty -Name WindowsAzure -Value (New-Object System.Collections.ArrayList)
+    $logs | Add-Member -Type NoteProperty -Name WindowsPowershell -Value (New-Object System.Collections.ArrayList)
     $logs | Add-Member -Type NoteProperty -Name Loaded -Value $false
 
     return $logs
@@ -520,7 +509,7 @@ function Show-Log-Stats {
 
 
         $logtype = $logtype.PadRight(26, " ")
-        $FiltCount = $filtered.PadLeft(18 - $Count.Length, " ")
+        $FiltCount = $FiltCount.PadLeft(18 - $Count.Length, " ")
 
         Write-Host "$logtype $Count $FiltCount" -NoNewline
         Write-Host "    |"
@@ -566,28 +555,29 @@ function Edit-Filter-User {
         Clear-Host
         Write-Host "Negative Search Usernames:"
 
-        foreach ($user in $CurrentFilter.Usernames) {if($user -ne ""){$user}}
+        foreach ($user in $CurrentFilter.Usernames) {if($null -ne $user){$user}}
         
         $NewUser = Read-Host "Add / Remove > "
-        if ($NewUser -eq "") {
-            break
+        if ($null -eq $NewUser) {
+            return
         }
 
         $isNew = 1
-        $NewUsers = @()
-        for ($i=0;$i -lt $CurrentFilter.Usernames.Count; $i++) {
+        $NewUsers = New-Object System.Collections.ArrayList
+
+        for ($i=0; $i -lt $CurrentFilter.Usernames.Count; $i++) {
             if ($CurrentFilter.Usernames[$i] -eq $NewUser) {
                 $isNew = 0
-            } else {$NewUsers += $CurrentFilter.Usernames[$i]}
+            } else {$NewUsers.add($CurrentFilter.Usernames[$i])}
         }
 
         if ($isNew -eq 1) {
-            $NewUsers += ($NewUser)
+            $NewUsers.add($NewUser)
         }
 
         $script:CurrentFilter.Usernames = $NewUsers
 
-    } while ($NewUser -ne "")
+    } while ($null -ne $NewUser)
 }
 
 function Edit-Filter-Time {
@@ -660,7 +650,10 @@ function Edit-Filter-EventTypes {
         Write-Host "Event Types Included:"
 
         foreach ($EventType in @("Error", "Warning", "Information", "Success Audit", "Failure Audit")) {
-        
+            
+            if ($CurrentFilter.EventTypes.Contains($EventType.ToLower())) {Write-Host "[X] " $EventType} 
+            else {Write-Host "[ ] " $EventType}
+            <#
             $found = 0
             foreach ($event in $CurrentFilter.EventTypes) {
                 if ($EventType -eq $event) {$found = 1}
@@ -668,17 +661,17 @@ function Edit-Filter-EventTypes {
 
             if ($found -eq 1) {Write-Host "[X] " $EventType}
             else {Write-Host "[ ] " $EventType}
-    
+            #>
         }
 
         $toggle = Read-Host "Toggle? > "
 
-        if ($toggle -eq "") {return}
+        if ($null -eq $toggle) {return}
 
         $isNew = 1
         $NewEvents = @()
         for ($i=0;$i -lt $CurrentFilter.EventTypes.Count; $i++) {
-            if ($CurrentFilter.EventTypes[$i] -eq $toggle) {
+            if ($CurrentFilter.EventTypes[$i].ToLower() -eq $toggle.ToLower()) {
                $isNew = 0
             } else {$NewEvents += $CurrentFilter.EventTypes[$i]}
         }
@@ -690,12 +683,12 @@ function Edit-Filter-EventTypes {
               -or $toggle -eq "success audit" `
               -or $toggle -eq "failure audit" )) {
 
-            $NewEvents += ($toggle)
+            $NewEvents += ($toggle.ToLower())
         }
 
         $script:CurrentFilter.EventTypes = $NewEvents
     
-    } while ($toggle -ne "")
+    } while ($null -ne $toggle)
 }
 
 function Edit-Filter-EventCodes {
@@ -709,29 +702,30 @@ function Edit-Filter-EventCodes {
         Clear-Host
         Write-Host "Positive Search Event Codes:"
 
-        foreach ($event in $CurrentFilter.EventCodes) {if($event -ne ""){$event}}
+        foreach ($event in $CurrentFilter.EventCodes) {if($null -ne $event){$event}}
         
         $NewCode = Read-Host 'Add / Remove [$ErrorCode | reset]> '
        
-        if ($NewCode -eq "") {break}
-        if ($NewCode -eq "reset") {$script:CurrentFilter.EventCodes = @(); continue}
+        if ($null -eq $NewCode) {break}
+        if ($NewCode -eq "reset") {$script:CurrentFilter.EventCodes = New-Object System.Collections.ArrayList; continue}
 
 
         $isNew = 1
-        $NewCodes = @()
-        for ($i=0;$i -lt $CurrentFilter.EventCodes.Count; $i++) {
+        $NewCodes = New-Object System.Collections.ArrayList
+
+        for ($i=0; $i -lt $CurrentFilter.EventCodes.Count; $i++) {
             if ($CurrentFilter.EventCodes[$i] -eq $NewCode) {
                 $isNew = 0
-            } else {$NewCodes += $CurrentFilter.EventCodes[$i]}
+            } else {$NewCodes.add($CurrentFilter.EventCodes[$i])}
         }
 
         if ($isNew -eq 1) {
-            $NewCodes += ($NewCode)
+            $NewCodes.add($NewCode)
         }
 
         $CurrentFilter.EventCodes = $NewCodes
 
-    } while ($NewCodes -ne "") 
+    } while ($null -ne $NewCode) 
 }
 
 function Edit-Filter-EventSources {
@@ -759,7 +753,7 @@ function Edit-Filter-EventSources {
 
         $toggle = Read-Host "Toggle? > "
 
-        if ($toggle -eq "") {return}
+        if ($null -eq $toggle) {return}
 
         $isNew = 1
         $NewEvents = @()
@@ -786,7 +780,7 @@ function Edit-Filter-EventSources {
 
         $script:CurrentFilter.EventSources = $NewEvents
     
-    } while ($toggle -ne "")
+    } while ($null -ne $toggle)
 
 }
 
@@ -827,6 +821,17 @@ function Not-Yet-Implemented {
 }
 
 
+
+if ($args.Count -eq 0) {
+    $script:UseGlobals = $true
+    $script:CurrentFilter = Initialize-Filter @() "" "" @() @()
+    $script:Logs = Initialize-Log-Struct
+    $script:FilteredLogs = Initialize-Log-Struct
+    Write-Lame-Menu-Main
+
+} else {
+    CLI-Backbone
+}
 
 
 
