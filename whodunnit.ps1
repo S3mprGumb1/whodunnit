@@ -653,15 +653,7 @@ function Edit-Filter-EventTypes {
             
             if ($CurrentFilter.EventTypes.Contains($EventType.ToLower())) {Write-Host "[X] " $EventType} 
             else {Write-Host "[ ] " $EventType}
-            <#
-            $found = 0
-            foreach ($event in $CurrentFilter.EventTypes) {
-                if ($EventType -eq $event) {$found = 1}
-            }
 
-            if ($found -eq 1) {Write-Host "[X] " $EventType}
-            else {Write-Host "[ ] " $EventType}
-            #>
         }
 
         $toggle = Read-Host "Toggle? > "
@@ -740,15 +732,11 @@ function Edit-Filter-EventSources {
         Write-Host "Event Types Included:"
 
         foreach ($EventSource in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
-        
-            $found = 0
-            foreach ($event in $CurrentFilter.EventSources) {
-                if ($EventSource -eq $event) {$found = 1}
-            }
-
-            if ($found -eq 1) {Write-Host "[X] " $EventSource}
+            
+            if ($null -eq $CurrentFilter.EventSources ) {Write-Host "[ ] " $EventSource; continue}
+            if ($CurrentFilter.EventSources.Contains($EventSource.ToLower())) {Write-Host "[X] " $EventSource} 
             else {Write-Host "[ ] " $EventSource}
-    
+
         }
 
         $toggle = Read-Host "Toggle? > "
@@ -758,7 +746,7 @@ function Edit-Filter-EventSources {
         $isNew = 1
         $NewEvents = @()
         for ($i=0;$i -lt $CurrentFilter.EventSources.Count; $i++) {
-            if ($CurrentFilter.EventSources[$i] -eq $toggle) {
+            if ($CurrentFilter.EventSources[$i].ToLower() -eq $toggle.ToLower()) {
                $isNew = 0
             } else {$NewEvents += $CurrentFilter.EventSources[$i]}
         }
@@ -775,7 +763,7 @@ function Edit-Filter-EventSources {
               -or $toggle -eq "windows powershell" `
                )) {
 
-            $NewEvents += ($toggle)
+            $NewEvents += ($toggle.ToLower())
         }
 
         $script:CurrentFilter.EventSources = $NewEvents
