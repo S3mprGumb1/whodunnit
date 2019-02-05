@@ -9,6 +9,7 @@
     ## ODOT ##
 #>
 Param (
+
     [parameter(Mandatory=$true, ParameterSetName = "ImportFromFile")]
         [ValidateNotNullOrEmpty()]
         [alias("Input-File")]
@@ -36,25 +37,14 @@ Param (
     
     [parameter(Mandatory=$true, ParameterSetName = "CreateFilter")]
         [alias("Create-Filter")]
-        [switch]$c = $false,
-
-    [parameter(Mandatory=$true, ParameterSetName = "LoadRemote")]
-        [alias("Remote-IP")]
-        [String]$r,
-
-    [parameter(Mandatory=$true, ParameterSetName = "LoadRemote")]
-        [alias("Username")]
-        [String]$u,
+        [switch]$c = $false
     
-    [parameter(Mandatory=$true, ParameterSetName = "LoadRemote")]
-        [alias("Password")]
-        [String]$p = $(Read-Host "Input remote password> ")
 )
 
 # Set up for use in an interactive environment when no arguments passed
 if ($args.Count -eq 0) {
     $script:UseGlobals = $true
-    $script:CurrentFilter = Initialize-Filter(@(),"","",@(),@())
+    $script:CurrentFilter = Initialize-Filter @() "" "" @() @()
     $script:Logs = Initialize-Log-Struct
     $script:FilteredLogs = Initialize-Log-Struct
     Write-Lame-Menu-Main
@@ -275,15 +265,15 @@ function Initialize-Log-Struct {
     
     $logs = New-Object psobject
 
-    $logs | Add-Member -type NoteProperty -Name Application -Value @()
-    $logs | Add-Member -Type NoteProperty -Name HardwareEvents -Value @()
-    $logs | Add-Member -Type NoteProperty -Name InternetExplorer -Value @()
-    $logs | Add-Member -Type NoteProperty -Name KeyManagement -Value @()
-    $logs | Add-Member -Type NoteProperty -Name OAlerts -Value @()
-    $logs | Add-Member -Type NoteProperty -Name Security -Value @()
-    $logs | Add-Member -Type NoteProperty -Name System -Value @()
-    $logs | Add-Member -Type NoteProperty -Name WindowsAzure -Value @()
-    $logs | Add-Member -Type NoteProperty -Name WindowsPowershell -Value @()
+    $logs | Add-Member -type NoteProperty -Name Application -Value New-Object System.Collections.ArrayList
+    $logs | Add-Member -Type NoteProperty -Name HardwareEvents -Value New-Object System.Collections.ArrayList
+    $logs | Add-Member -Type NoteProperty -Name InternetExplorer -Value New-Object System.Collections.ArrayList
+    $logs | Add-Member -Type NoteProperty -Name KeyManagement -Value New-Object System.Collections.ArrayList
+    $logs | Add-Member -Type NoteProperty -Name OAlerts -Value New-Object System.Collections.ArrayList
+    $logs | Add-Member -Type NoteProperty -Name Security -Value New-Object System.Collections.ArrayList
+    $logs | Add-Member -Type NoteProperty -Name System -Value New-Object System.Collections.ArrayList
+    $logs | Add-Member -Type NoteProperty -Name WindowsAzure -Value New-Object System.Collections.ArrayList
+    $logs | Add-Member -Type NoteProperty -Name WindowsPowershell -Value New-Object System.Collections.ArrayList
     $logs | Add-Member -Type NoteProperty -Name Loaded -Value $false
 
     return $logs
@@ -496,7 +486,9 @@ function Filter-Logs-CLI {
 
                     # Only logs that match filter should make it here
                     # Add current log to filtered set
-                    $filteredSet.$logtype += $log
+                    $filteredSet.$logtype.add($log)
+
+                    #$filteredSet.$logtype += $log
                 }
             }
         }
