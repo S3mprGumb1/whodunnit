@@ -95,8 +95,8 @@ Roadmap
 | Descritption | Status | Tenative Timeframe | Date Completed |
 | :------------- | :-------------: |  :-------------: | :-------------: |
 | Refactor to allow basic scripting  | Complete | End Jan. 2019 | Mid Jan. 2019 |
-| Refactor entire project to use classes instead of functions (See issue 4) | Researching | End Jan. 2019 |  |
-| Refactor data types: Change arrays to ArrayLists to drastically improve performance | Researching | Mid Feb. 2019 |  |
+| Refactor entire project to use classes instead of functions (See issue 4) | Researching | Mid Feb. 2019 |  |
+| Refactor data types: Change arrays to ArrayLists to drastically improve performance | Complete | Mid Feb. 2019 |  |
 | Export logs to a format that Microsoft's Windows Event Viewer can import | Not Started | End Feb. 2019 | N/A |
 | Import logs from a mounted, but not booted, drive | Not Started | ?? | N/A |
 | Import logs from an offline NTFS disk, using MFT | Not Started | ?? | N/A |
