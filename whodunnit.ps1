@@ -27,14 +27,13 @@ class Filter_Struct {
 
 class Menu_Functions {
     
-    [void]Write_Menu_Main() {
+    [void]Write_Menu_Main($menu) {
 
         $UserInput = 0
+        $Logs = [Log_Struct]::new()
+        $Filter = [Filter_Struct]::new()
 
         do {
-
-            $Logs = [Log_Struct]::new()
-            $Filter = [Filter_Struct]::new()
 
             Clear-Host
             Write-Host "============================="
@@ -51,7 +50,7 @@ class Menu_Functions {
             $UserInput = Read-Host "whodunnit> "
         
             switch($UserInput) {
-                '1' {$Logs = Write-Lame-Menu-Load($Logs)}
+                '1' {$Logs = $menu.Write_Menu_Load($Logs)}
                 '2' {$Filter = Write-Menu-Filter($Filter, $Logs)}
                 '3' {Show-Log-Stats}
                 '4' {Export-Logs}
@@ -64,6 +63,7 @@ class Menu_Functions {
     [Log_Struct]Write_Menu_Load($Logs) {
         
         $UserInput = 0
+        $load = [Load_Functions]::new()
 
         do {
 
@@ -79,10 +79,10 @@ class Menu_Functions {
             Write-Host
     
         
-            $UserInput = Read-Host "whodunnit> Load> "
+            $UserInput = Read-Host "whodunnit> load> "
             
             switch($UserInput) {
-                '1' {Return Import-Logs($Logs)}
+                '1' {Return $load.Import_Logs($Logs)}
                 '2' {Return Read-From-Local($Logs)}
                 '3' {Return Not-Yet-Implemented}
                 '4' {Return $Logs}
@@ -90,7 +90,7 @@ class Menu_Functions {
         
         } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
     
-        return $null
+        return $Logs
     }
 
     [Filter_Struct]Write_Menu_Filter($Filter, $Logs) {
@@ -170,5 +170,73 @@ class Menu_Functions {
     }
 }
 
+class Load_Functions {
+    
+    <# Reads in logs from a previously exported logset #>
+    [Log_Struct]Import_Logs($Logs) {
+        
+        if ($Logs.loaded) {
+            Write-Host "Logs are already loaded!"
+            $UserInput = Read-Host "Overwrite? [y/N]> "
+            
+            if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Logs}
+        } 
+
+        Return Import-Clixml -LiteralPath (Read-Host "whodunnit> load> import path> ")
+    }
+
+    <# Reads in logs from the local machine #>
+    [Log_Struct]Read_From_Local($Logs) {
+
+        # Prevent Overwrites
+        if ($Logs.loaded) {
+            Write-Host "Logs are already loaded!"
+            $UserInput = Read-Host "Overwrite? [y/N]> "
+            
+            if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Logs}
+        }
+
+        $LogTypes = "Application", "HardwareEvents", "Internet Explorer", "Key Management Service", "OAlerts", "System", "Windows Azure", "Windows PowerShell", "Security"
+
+        # Loop executes for every log type
+        for ($i = 0; $i -lt $LogTypes.Length; $i++) {
+
+            $LogType = $LogTypes[$i]
+            $Count = $i + 1
+
+            # Display Progress
+            Write-Progress  -Activity "Loading Event Logs from Local Host" `
+                        -Status "$Count of 9" `
+                        -CurrentOperation "Loading $LogType Logs" `
+                        -PercentComplete ($Count / 9 * 100) `
+                        -Id 1
+            
+            # Check Perms on security logs
+            if ($LogType -eq "Security") {
+
+                $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+                
+                if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+                    Write-Host "Warning! Insignificant priviledges to load security logs!"
+                    Continue
+                }
+            }
+
+            # If no logs, skip the call to set. Prevents error message.
+            if ((Get-EventLog -List | Where-Object Log -eq $LogType).Entries.Count -eq 0) {Continue}
+
+            # Sets the appropriate list to the contents of the log list
+            $Logs.($LogType.ToString().Remove(" ")) = Get-EventLog -LogName $LogType 
+
+        }
+
+        $Logs.loaded = $true
+        Write-Progress -Activity "Loading Event Logs from Local Host" -Id 1 -Completed
+        Return $Logs
+
+    }
+
+}
+
 $menu = New-Object -TypeName Menu_Functions
-$menu.write_menu_main()
+$menu.write_menu_main($menu)
