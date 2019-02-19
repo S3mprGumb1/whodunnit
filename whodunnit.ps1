@@ -21,6 +21,7 @@ class Filter_Struct {
     [System.Collections.ArrayList]$EventCodes
     [System.Collections.ArrayList]$EventTypes
     [System.Collections.ArrayList]$EventSources
+    [Log_Struct]$MatchingLogs
 }
 
 
@@ -33,7 +34,6 @@ class Menu_Functions {
         do {
 
             $Logs = [Log_Struct]::new()
-            $FilteredLogs = [Log_Struct]::new()
             $Filter = [Filter_Struct]::new()
 
             Clear-Host
@@ -52,7 +52,7 @@ class Menu_Functions {
         
             switch($UserInput) {
                 '1' {$Logs = Write-Lame-Menu-Load($Logs)}
-                '2' {Write-Lame-Menu-Filter}
+                '2' {$Filter = Write-Menu-Filter($Filter, $Logs)}
                 '3' {Show-Log-Stats}
                 '4' {Export-Logs}
             }
@@ -85,7 +85,7 @@ class Menu_Functions {
                 '1' {Return Import-Logs($Logs)}
                 '2' {Return Read-From-Local($Logs)}
                 '3' {Return Not-Yet-Implemented}
-                '4' {Return $null}
+                '4' {Return $Logs}
             }
         
         } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
@@ -93,7 +93,7 @@ class Menu_Functions {
         return $null
     }
 
-    [Filter_Struct]Write_Menu_Filter($Filter) {
+    [Filter_Struct]Write_Menu_Filter($Filter, $Logs) {
         
         $UserInput = 0
 
@@ -118,7 +118,7 @@ class Menu_Functions {
                 '3' {Export-Filter}
                 '1' {$Filter = Import-Filter($Filter)}
                 '2' {$Filter = Write-Lame-Menu-Filter-Edit($Filter)}
-                '4' {Not-Yet-Implemented}
+                '4' {$Filter = Apply-Filter($Filter, $Logs)}
             }
         
         } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
