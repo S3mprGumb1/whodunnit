@@ -53,7 +53,7 @@ class Menu_Functions {
                 '1' {$Logs = $menu.Write_Menu_Load($Logs)}
                 '2' {$Filter = Write-Menu-Filter($Filter, $Logs)}
                 '3' {Show-Log-Stats}
-                '4' {Export-Logs}
+                '4' {Export_Logs($Logs)}
             }
     
         } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
@@ -84,7 +84,7 @@ class Menu_Functions {
             switch($UserInput) {
                 '1' {Return $load.Import_Logs($Logs)}
                 '2' {Return Read-From-Local($Logs)}
-                '3' {Return Not-Yet-Implemented}
+                '3' {Return $Logs}
                 '4' {Return $Logs}
             }
         
@@ -236,6 +236,32 @@ class Load_Functions {
 
     }
 
+}
+
+class Export_Functions {
+
+    <# Exports Logs as an xml object. very space intensive. #>
+    <# ROADMAP: Issue #2 #>
+    [bool]Export_Logs($Logs) {
+            
+        if ($Logs.loaded -eq $false) {
+            Read-Host "Error: No logs are loaded"
+            Return $false
+        }
+
+        $UserInput = Read-Host "whodunnit> Export Path> "
+
+        try {
+            Export-Clixml -LiteralPath $UserInput -InputObject $Logs
+        }
+        catch {
+            Read-Host "Error: Encountered Problem Writing File"
+            Return $false
+        }
+        
+        Return $true
+
+    }
 }
 
 $menu = New-Object -TypeName Menu_Functions
