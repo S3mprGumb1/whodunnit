@@ -106,10 +106,13 @@ Roadmap
 Branch Descriptions
 ------------------
 Class_Refactor:
+
+```
 This branch was created to contain the changes made while working on Issue #4.
 Status: Implementing. 
 Detailed: Implemented Exporting functionality. 3-7-19
 
+```
 
 Credit Where Credit is Due
 --------------------------
