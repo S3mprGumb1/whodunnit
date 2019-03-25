@@ -1,6 +1,6 @@
 ﻿
 
-
+# Structures 
 class Log_Struct {
     [Array]$Application
     [Array]$HardwareEvents
@@ -22,9 +22,10 @@ class Filter_Struct {
     [System.Collections.ArrayList]$EventTypes
     [System.Collections.ArrayList]$EventSources
     [Log_Struct]$MatchingLogs
+    [bool]$loaded
 }
 
-
+# Functions
 class Menu_Functions {
     
     [void]Write_Menu_Main($menu) {
@@ -83,7 +84,7 @@ class Menu_Functions {
             
             switch($UserInput) {
                 '1' {Return $load.Import_Logs($Logs)}
-                '2' {Return Read-From-Local($Logs)}
+                '2' {Return $load.Read_From_Local(($Logs)}
                 '3' {Return $Logs}
                 '4' {Return $Logs}
             }
@@ -115,7 +116,7 @@ class Menu_Functions {
             $UserInput = Read-Host "whodunnit> filter>"
             
             switch($UserInput) {
-                '3' {Export-Filter}
+                '3' {Export_Filter($Filter)}
                 '1' {$Filter = Import-Filter($Filter)}
                 '2' {$Filter = Write-Lame-Menu-Filter-Edit($Filter)}
                 '4' {$Filter = Apply-Filter($Filter, $Logs)}
@@ -261,6 +262,39 @@ class Export_Functions {
         
         Return $true
 
+    }
+}
+
+class Filter_Functions {
+
+    <# Exports a filter as an xml object. #>
+    [bool]Export_Filter($Filter) {
+
+        $UserInput = Read-Host "whodunnit> filter> export path> "
+
+        try {
+            Export-Clixml -LiteralPath $UserInput -InputObject $Filter
+        }
+        catch {
+            Read-Host "Error Encountered Problem Writing File"
+            Return $false
+        }
+
+        Return $true
+
+    }
+
+    <# Imports a filter from an exported xml. #>
+    [Filter_Struct]Import_Filter($Filter) {
+
+        if ($Filter.loaded) {
+            Write-Host "A filter is already loaded!"
+            $UserInput = Read-Host "Overwrite? [y/N]> "
+
+            if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Filter}
+        }
+
+        Return Import-Clixml -LiteralPath (Read-Host "whodunnit> filter> import path> ")
     }
 }
 
