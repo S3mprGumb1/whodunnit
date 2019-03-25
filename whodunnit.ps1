@@ -52,7 +52,7 @@ class Menu_Functions {
         
             switch($UserInput) {
                 '1' {$Logs = $menu.Write_Menu_Load($Logs)}
-                '2' {$Filter = Write-Menu-Filter($Filter, $Logs)}
+                '2' {$Filter = $menu.Write_Menu_Filter($Filter, $Logs)}
                 '3' {Show-Log-Stats}
                 '4' {Export_Logs($Logs)}
             }
@@ -84,7 +84,7 @@ class Menu_Functions {
             
             switch($UserInput) {
                 '1' {Return $load.Import_Logs($Logs)}
-                '2' {Return $load.Read_From_Local(($Logs)}
+                '2' {Return $load.Read_From_Local($Logs)}
                 '3' {Return $Logs}
                 '4' {Return $Logs}
             }
@@ -97,6 +97,8 @@ class Menu_Functions {
     [Filter_Struct]Write_Menu_Filter($Filter, $Logs) {
         
         $UserInput = 0
+        $filters = [Filter_Functions]::new()
+        $menus = [Menu_Functions]::new() 
 
         do {
 
@@ -116,9 +118,9 @@ class Menu_Functions {
             $UserInput = Read-Host "whodunnit> filter>"
             
             switch($UserInput) {
-                '3' {Export_Filter($Filter)}
-                '1' {$Filter = Import-Filter($Filter)}
-                '2' {$Filter = Write-Lame-Menu-Filter-Edit($Filter)}
+                '3' {$filters.Export_Filter($Filter)}
+                '1' {$Filter = $filters.Import_Filter($Filter)}
+                '2' {$Filter = $menus.Write_Menu_Edit($Filter)}
                 '4' {$Filter = Apply-Filter($Filter, $Logs)}
             }
         
@@ -131,6 +133,7 @@ class Menu_Functions {
         
         $UserInput = 0
         $Bak = $Filter
+        $edit = [Filter_Functions]::new()
 
         do {
 
@@ -152,7 +155,7 @@ class Menu_Functions {
             $UserInput = Read-Host "whodunnit> filter> edit> "
             
             switch($UserInput) {
-                '1' {$Filter.Username = Edit-Filter-User($Filter.Username)}
+                '1' {$Filter.Usernames = $edit.Username_Edit($Filter)}
                 '2' {$Filter = Edit-Filter-Time($Filter)}
                 '3' {$Filter.EventCodes = Edit-Filter-EventCodes($Filter.EventCodes)}
                 '4' {$Filter.EventTypes = Edit-Filter-EventTypes($Filter.EventTypes)}
@@ -296,6 +299,34 @@ class Filter_Functions {
 
         Return Import-Clixml -LiteralPath (Read-Host "whodunnit> filter> import path> ")
     }
+
+    [Filter_Struct]Username_Edit($Filter) {
+        
+        $NewUser = " "
+        do {
+            
+            Clear-Host
+            Write-Host "Negative Search Usernames:"
+
+            foreach ($user in $Filter.Usernames) {if($null -ne $user){Write-Host $user}}
+
+            $NewUser = Read-Host "Add / Remove > "
+            if ($null -eq $NewUser) {
+                return $Filter
+            }
+
+            for ($i = 0; $i -lt $Filter.Usernames.Count; $i++) {
+                if ($Filter.Usernames[$i] -eq $NewUser) {
+                    $Filter.Usernames.Remove($NewUser)
+                } else {$Filter.Usernames.Add($NewUser)}
+            }
+
+        } while ($null -ne $NewUser)
+        
+        Return $Filter
+
+    }
+
 }
 
 $menu = New-Object -TypeName Menu_Functions
