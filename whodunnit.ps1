@@ -30,9 +30,11 @@ class Menu_Functions {
     
     [void]Write_Menu_Main($menu) {
 
+        $inits = [Init_Functions]::new()
+
         $UserInput = 0
         $Logs = [Log_Struct]::new()
-        $Filter = [Filter_Struct]::new()
+        $Filter = $inits.Init_Filter()
 
         do {
 
@@ -157,8 +159,8 @@ class Menu_Functions {
             switch($UserInput) {
                 '1' {$Filter.Usernames = $edit.Username_Edit($Filter)}
                 '2' {$Filter = Edit-Filter-Time($Filter)}
-                '3' {$Filter.EventCodes = Edit-Filter-EventCodes($Filter.EventCodes)}
-                '4' {$Filter.EventTypes = Edit-Filter-EventTypes($Filter.EventTypes)}
+                '3' {$Filter.EventCodes = $edit.EventCode_Edit($Filter)}
+                '4' {$Filter.EventTypes = $edit.EventTypes_Edit($Filter)}
                 '5' {$Filter.EventSources = Edit-Filter-EventSources($Filter.EventSources)}
                 '6' {Return $Filter}
                 '7' {Return $Bak}
@@ -170,6 +172,29 @@ class Menu_Functions {
         $UserInput = Read-Host "Save Changes? [(y)/n]> "
 
         if ($UserInput.ToLower() -eq "n") {Return $Bak}
+        Return $Filter
+    }
+}
+
+
+class Init_Functions {
+
+    [Filter_Struct]Init_Filter() {
+        $Filter = [Filter_Struct]::new()
+
+        #Initialize
+        $Filter.Usernames = [System.Collections.ArrayList]::new()
+        $Filter.TimeStart = [datetime]::MinValue
+        $Filter.TimeEnd = [datetime]::MaxValue
+        $Filter.EventCodes = [System.Collections.ArrayList]::new()
+        $Filter.EventTypes = [System.Collections.ArrayList]::new()
+        $Filter.EventSources = [System.Collections.ArrayList]::new()
+        $Filter.MatchingLogs = [Log_Struct]::new()
+        $Filter.loaded = $false
+
+        #Defualts
+        $Filter.EventCodes.Add("*")
+
         Return $Filter
     }
 }
@@ -300,32 +325,119 @@ class Filter_Functions {
         Return Import-Clixml -LiteralPath (Read-Host "whodunnit> filter> import path> ")
     }
 
-    [Filter_Struct]Username_Edit($Filter) {
+    <# Handles editing the username list. #>
+    [System.Collections.ArrayList]Username_Edit($Filter) {
         
         $NewUser = " "
-        do {
+        $Users = $Filter.Usernames
+
+        do  {
             
             Clear-Host
             Write-Host "Negative Search Usernames:"
 
-            foreach ($user in $Filter.Usernames) {if($null -ne $user){Write-Host $user}}
+            foreach ($user in $Users) {if($null -ne $user){Write-Host $user}}
 
             $NewUser = Read-Host "Add / Remove > "
-            if ($null -eq $NewUser) {
-                return $Filter
-            }
+            if ($null -eq $NewUser) {break} else {$NewUser = $NewUser.ToLower()}
 
-            for ($i = 0; $i -lt $Filter.Usernames.Count; $i++) {
-                if ($Filter.Usernames[$i] -eq $NewUser) {
-                    $Filter.Usernames.Remove($NewUser)
-                } else {$Filter.Usernames.Add($NewUser)}
-            }
+            $new = $true
+            for ($i = 0; $i -lt $Users.Count; $i++) {
+                if ($Users[$i] -eq $NewUser) {
+                    $Users.Remove($NewUser)
+                    $new = $false
+                    break
+                } 
+            } 
+            if ($new) {$Users.Add($NewUser)}
 
         } while ($null -ne $NewUser)
         
-        Return $Filter
+        Return $Users
 
     }
+
+    <# Handles editing the event code list. #>
+    [System.Collections.ArrayList]EventCode_Edit($Filter) {
+
+        $Codes = $Filter.EventCodes
+        $NewCode = " "
+
+        do {
+
+            Clear-Host
+            Write-Host "Positive Search Event Codes:"
+
+            foreach ($event in $Codes) {if($null -ne $event){Write-Host $event}}
+
+            $NewCode = Read-Host 'Add / Remove [$ErrorCode | * | reset]> '
+
+            if ($null -eq $NewCode) {break} else {}
+            if ($NewCode -eq "reset") {$Codes = [System.Collections.ArrayList]::new(); $Codes.Add("*"); continue}
+            
+            $new = $true
+            for ($i = 0; $i -lt $Codes.Count; $i++) {
+                if ($Codes[$i] -eq $NewCode) {
+                    $Codes.Remove($NewCode)
+                    $new = $false
+                    break
+                } 
+            } 
+            if ($new) {$Codes.Add($NewCode)}
+
+        } while ($null -ne $NewCode)
+
+        Return $Codes
+
+    }
+
+    <# Handles editing the event type list. #>
+    [System.Collections.ArrayList]EventTypes_Edit($Filter) {
+
+        $Types = $Filter.EventTypes
+        $NewType = " "
+
+        do {
+
+            Clear-Host
+            Write-Host "Event Types Included:"
+
+            foreach ($EventType in @("Error", "Warning", "Information", "Success Audit", "Failure Audit")) {
+
+                if ($Types.Contains($EventType.ToLower())) {Write-Host "[X] " $EventType}
+                else {Write-Host "[ ] " $EventType}
+
+            }
+
+            $NewType = Read-Host "Toggle? > "
+
+            if ($null -eq $NewType) {break}
+
+            $new = $true
+            for ($i = 0; $i -lt $Types.Count; $i++) {
+                if ($Types[$i].ToLower() -eq $NewType.ToLower()) {
+                    $new = $false
+                    $Types.Remove($NewType.ToLower())
+                    break
+                }
+            }
+
+            if ($new) {
+                if ($NewType.ToLower() -eq "error" `
+                -or $NewType.ToLower() -eq "warning" `
+                -or $NewType.ToLower() -eq "information" `
+                -or $NewType.ToLower() -eq "success audit" `
+                -or $NewType.ToLower() -eq "failure audit" ) {
+                    $Types.Add($NewType.ToLower())
+                }
+            }
+
+        } while ($null -ne $NewType)
+
+        Return $Types
+    }
+
+    
 
 }
 
