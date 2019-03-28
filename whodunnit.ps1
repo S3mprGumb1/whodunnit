@@ -149,8 +149,7 @@ class Menu_Functions {
             Write-Host "3) Event Codes"
             Write-Host "4) Event Types"
             Write-Host "5) Event Sources"
-            Write-Host "6) Save"
-            Write-Host "7) Cancel"
+            Write-Host "6) Back"
             Write-Host
     
         
@@ -158,20 +157,14 @@ class Menu_Functions {
             
             switch($UserInput) {
                 '1' {$Filter.Usernames = $edit.Username_Edit($Filter)}
-                '2' {$Filter = Edit-Filter-Time($Filter)}
+                '2' {$Filter = $edit.TimeRange_Edit($Filter)}
                 '3' {$Filter.EventCodes = $edit.EventCode_Edit($Filter)}
                 '4' {$Filter.EventTypes = $edit.EventTypes_Edit($Filter)}
-                '5' {$Filter.EventSources = Edit-Filter-EventSources($Filter.EventSources)}
-                '6' {Return $Filter}
-                '7' {Return $Bak}
+                '5' {$Filter.EventSources = $edit.EventSources_Edit($Filter)}
             }
         
-        } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5" -and $UserInput -ne "6" -and $UserInput -ne "7")
+        } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5")
 
-        Write-Host
-        $UserInput = Read-Host "Save Changes? [(y)/n]> "
-
-        if ($UserInput.ToLower() -eq "n") {Return $Bak}
         Return $Filter
     }
 }
@@ -189,11 +182,12 @@ class Init_Functions {
         $Filter.EventCodes = [System.Collections.ArrayList]::new()
         $Filter.EventTypes = [System.Collections.ArrayList]::new()
         $Filter.EventSources = [System.Collections.ArrayList]::new()
-        $Filter.MatchingLogs = [Log_Struct]::new()
         $Filter.loaded = $false
 
         #Defualts
         $Filter.EventCodes.Add("*")
+        $Filter.TimeStart = [datetime]::MinValue
+        $Filter.TimeEnd = [datetime]::Now
 
         Return $Filter
     }
@@ -334,9 +328,13 @@ class Filter_Functions {
         do  {
             
             Clear-Host
-            Write-Host "Negative Search Usernames:"
+            Write-Host "==============================="
+            Write-Host "   .. > Filter > Edit > Name "
+            Write-Host "==============================="
+            Write-Host "Negative Search Usernames {"
 
-            foreach ($user in $Users) {if($null -ne $user){Write-Host $user}}
+            foreach ($user in $Users) {if($null -ne $user){Write-Host "    " $user}}
+            Write-Host "}"
 
             $NewUser = Read-Host "Add / Remove > "
             if ($null -eq $NewUser) {break} else {$NewUser = $NewUser.ToLower()}
@@ -366,11 +364,15 @@ class Filter_Functions {
         do {
 
             Clear-Host
-            Write-Host "Positive Search Event Codes:"
+            Write-Host "==============================="
+            Write-Host "   .. > Filter > Edit > Code "
+            Write-Host "==============================="
+            Write-Host "Positive Search Event Codes {"
 
-            foreach ($event in $Codes) {if($null -ne $event){Write-Host $event}}
+            foreach ($event in $Codes) {if($null -ne $event){Write-Host "    " $event}}
 
             $NewCode = Read-Host 'Add / Remove [$ErrorCode | * | reset]> '
+            Write-Host "}"
 
             if ($null -eq $NewCode) {break} else {}
             if ($NewCode -eq "reset") {$Codes = [System.Collections.ArrayList]::new(); $Codes.Add("*"); continue}
@@ -400,7 +402,10 @@ class Filter_Functions {
         do {
 
             Clear-Host
-            Write-Host "Event Types Included:"
+            Write-Host "==============================="
+            Write-Host "   .. > Filter > Edit > Type "
+            Write-Host "==============================="
+            Write-Host "Event Types Included {"
 
             foreach ($EventType in @("Error", "Warning", "Information", "Success Audit", "Failure Audit")) {
 
@@ -408,7 +413,8 @@ class Filter_Functions {
                 else {Write-Host "[ ] " $EventType}
 
             }
-
+            Write-Host "}"
+            
             $NewType = Read-Host "Toggle? > "
 
             if ($null -eq $NewType) {break}
@@ -437,7 +443,100 @@ class Filter_Functions {
         Return $Types
     }
 
-    
+    <# Handles editing the event source list. #>
+    [System.Collections.ArrayList]EventSources_Edit($Filter) {
+        $Sources = $Filter.EventSources
+        $NewSource = " "
+
+        do {
+
+            Clear-Host
+            Write-Host "==============================="
+            Write-Host "  .. > Filter > Edit > Source "
+            Write-Host "==============================="
+            Write-Host "Event Sources Included {"
+
+            foreach ($EventSource in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
+
+                if ($Sources.Contains($EventSource.ToLower())) {Write-Host "[X] " $EventSource}
+                else {Write-Host "[ ] " $EventSource}
+
+            }
+            Write-Host "}"
+
+            $NewSource = Read-Host "Toggle? > "
+
+            if ($null -eq $NewSource) {break}
+
+            $new = $true
+            for ($i = 0; $i -lt $Sources.Count; $i++) {
+                if ($Sources[$i].ToLower() -eq $NewSource.ToLower()) {
+                    $new = $false
+                    $Sources.Remove($NewSource.ToLower())
+                    break
+                }
+            }
+
+            if ($new) {
+                if ($NewSource.ToLower() -eq "application" `
+                -or $NewSource.ToLower() -eq "hardware events" `
+                -or $NewSource.ToLower() -eq "internet explorer" `
+                -or $NewSource.ToLower() -eq "key management" `
+                -or $NewSource.ToLower() -eq "oalerts" `
+                -or $NewSource.ToLower() -eq "security" `
+                -or $NewSource.ToLower() -eq "system" `
+                -or $NewSource.ToLower()-eq "windows azure" `
+                -or $NewSource.ToLower() -eq "windows powershell" `
+                 ) {
+                    $Sources.Add($NewSource.ToLower())
+                }
+            }
+
+        } while ($null -ne $NewSource)
+
+        Return $Sources
+    }
+
+    <# Handles editing the time range. #>
+    [Filter_Struct]TimeRange_Edit($Filter) {
+        
+        $edit = [Filter_Functions]::new()
+        $type = " "
+        do {
+
+            Clear-Host
+            Write-Host "==============================="
+            Write-Host "   .. > Filter > Edit > Time "
+            Write-Host "==============================="
+            Write-Host "Start Time: " $Filter.TimeStart
+            Write-Host "End Time:   " $Filter.TimeEnd
+            Write-Host
+            $type = Read-Host "Modify [start | end] > "
+
+            if ($null -eq $type) {Return $Filter}
+            if ($type -eq "start") {$Filter.TimeStart = $edit.Time_Edit($Filter.TimeStart)}
+            if ($type -eq "end") {$Filter.TimeEnd = $edit.Time_Edit($Filter.TimeEnd)}
+
+        } while ($null -ne $type)
+
+        Return $Filter
+
+    }
+
+    <# Helper function used in TimeRange_Edit. #>
+    [datetime]Time_Edit($Time) {
+        $timeTemplate = "M/dd/yyyy H:mm"
+        $newTime = Read-Host "New Value [MM/dd/yyyy HH:mm] > "
+
+        if ($newTime -eq "") {Return $Time}
+
+        try {
+            Return [datetime]::ParseExact($newTime, $timeTemplate, $null)
+        }
+        catch {
+            Return $Time
+        }
+    }
 
 }
 
