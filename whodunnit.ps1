@@ -2,15 +2,15 @@
 
 # Structures 
 class Log_Struct {
-    [Array]$Application
-    [Array]$HardwareEvents
-    [Array]$InternetExplorer
-    [Array]$KeyManagement
-    [Array]$OAlerts
-    [Array]$Security
-    [Array]$System
-    [Array]$WindowsAzure
-    [Array]$WindowsPowershell
+    [System.Collections.ArrayList]$Application
+    [System.Collections.ArrayList]$HardwareEvents
+    [System.Collections.ArrayList]$InternetExplorer
+    [System.Collections.ArrayList]$KeyManagement
+    [System.Collections.ArrayList]$OAlerts
+    [System.Collections.ArrayList]$Security
+    [System.Collections.ArrayList]$System
+    [System.Collections.ArrayList]$WindowsAzure
+    [System.Collections.ArrayList]$WindowsPowershell
     [bool]$loaded = $false
 }
 
@@ -31,9 +31,13 @@ class Menu_Functions {
     [void]Write_Menu_Main($menu) {
 
         $inits = [Init_Functions]::new()
+        $menu = [Menu_Functions]::new()
+        $filt = [Filter_Functions]::new()
+        $exp = [Export_Functions]::new()  
 
         $UserInput = 0
         $Logs = [Log_Struct]::new()
+        $Filtered = [Log_Struct]::new()
         $Filter = $inits.Init_Filter()
 
         do {
@@ -45,8 +49,9 @@ class Menu_Functions {
             Write-Host
             Write-Host "1) Load Logs"
             Write-Host "2) Active Filter"
-            Write-Host "3) Display Logs"
-            Write-Host "4) Export Logs"
+            Write-Host "3) Apply Filter"
+            Write-Host "4) Show Logs"
+            Write-Host "5) Export Logs"
             Write-Host
 
     
@@ -55,8 +60,9 @@ class Menu_Functions {
             switch($UserInput) {
                 '1' {$Logs = $menu.Write_Menu_Load($Logs)}
                 '2' {$Filter = $menu.Write_Menu_Filter($Filter, $Logs)}
-                '3' {Show-Log-Stats}
-                '4' {Export_Logs($Logs)}
+                '3' {$Filtered = $filt.Apply_Filter($Filter, $Logs)}
+                '4' {$exp.Show_Log_Stats($Logs, $Filtered)}
+                '5' {Export_Logs($Filtered)}
             }
     
         } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
@@ -112,8 +118,7 @@ class Menu_Functions {
             Write-Host "1) Load Filter"
             Write-Host "2) Edit Filter"
             Write-Host "3) Export Filter"
-            Write-Host "4) Apply"
-            Write-Host "5) Back"
+            Write-Host "4) Back"
             Write-Host
 
         
@@ -123,10 +128,9 @@ class Menu_Functions {
                 '3' {$filters.Export_Filter($Filter)}
                 '1' {$Filter = $filters.Import_Filter($Filter)}
                 '2' {$Filter = $menus.Write_Menu_Edit($Filter)}
-                '4' {$Filter = Apply-Filter($Filter, $Logs)}
             }
         
-        } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
+        } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3")
 
         Return $Filter
     }
@@ -191,6 +195,16 @@ class Init_Functions {
 
         Return $Filter
     }
+
+    [Log_Struct]Init_Log() {
+        $Log = [Log_Struct]::new()
+
+        foreach ($event in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
+            $Log.$event = [System.Collections.ArrayList]::new()
+        }
+
+        Return $Log
+    }
 }
 
 class Load_Functions {
@@ -216,6 +230,7 @@ class Load_Functions {
             Write-Host "Logs are already loaded!"
             $UserInput = Read-Host "Overwrite? [y/N]> "
             
+            if ($null -eq $UserInput) {Return $Logs}
             if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Logs}
         }
 
@@ -249,7 +264,7 @@ class Load_Functions {
             if ((Get-EventLog -List | Where-Object Log -eq $LogType).Entries.Count -eq 0) {Continue}
 
             # Sets the appropriate list to the contents of the log list
-            $Logs.($LogType.ToString().Remove(" ")) = Get-EventLog -LogName $LogType 
+            $Logs.($LogType.ToString().Replace(" ","")) = Get-EventLog -LogName $LogType 
 
         }
 
@@ -285,6 +300,34 @@ class Export_Functions {
         Return $true
 
     }
+
+    [void]Show_Log_Stats($Logs, $Filtered) {
+        
+        Clear-Host
+        Write-Host "============"
+        Write-Host " Log Counts "
+        Write-Host "============"
+        Write-Host "Logtype              Unfiltered Count  Filtered Count"
+        Write-Host "+---------------------------------------------------+"
+        foreach ($logtype in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
+        
+            Write-Host -NoNewline "| "
+
+            $FiltCount = $Filtered.$logtype.Count.ToString()
+            $Count = $Logs.$logtype.Count.ToString()
+
+
+            $logtype = $logtype.PadRight(26, " ")
+            $FiltCount = $FiltCount.PadLeft(18 - $Count.Length, " ")
+
+            Write-Host "$logtype $Count $FiltCount" -NoNewline
+            Write-Host "    |"
+        }
+
+        Write-Host "+---------------------------------------------------+"
+        Read-Host
+    }
+    
 }
 
 class Filter_Functions {
@@ -313,10 +356,13 @@ class Filter_Functions {
             Write-Host "A filter is already loaded!"
             $UserInput = Read-Host "Overwrite? [y/N]> "
 
+            if ($null -eq $UserInput) {Return $Filter}
             if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Filter}
         }
 
-        Return Import-Clixml -LiteralPath (Read-Host "whodunnit> filter> import path> ")
+        $UserInput = Read-Host "whodunnit> filter> import path> "
+        if ($null -eq $UserInput) {Return $Filter}
+        Return Import-Clixml -LiteralPath $UserInput
     }
 
     <# Handles editing the username list. #>
@@ -537,6 +583,86 @@ class Filter_Functions {
             Return $Time
         }
     }
+
+    <# Handles sorting out events that do not match the filter. #>
+   [Log_Struct]Apply_Filter($Filter, $Logs) {
+
+        #Do Magic
+        
+        $Filtered_Set = ([Init_Functions]::new()).Init_Log()
+
+        foreach ($logtype in $Filter.EventSources) {
+
+            $found = 0
+            foreach ($event in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
+                # Skip logtypes that do not apply to this type
+                if ($logtype.replace(' ', '') -ne $event) {continue}
+
+                # The set of logs that this loop refers to
+                $Working_Set = $Logs.$logtype
+           
+           
+                foreach ($log in $Working_Set) {
+
+                    # for every log in the working set:
+                    #      1) Check Username vs the User list
+                    #      2) Check Event Time vs Start Time
+                    #      3) Check Event Time vs End Time
+                    #      4) Check Event Code vs List
+                    #      5) Check Event Type vs List
+               
+                    # 1) Skip non null username values, and users in the usernames list
+                    if ($null -ne $log.Username) {
+                        if ($Filter.Usernames.Contains($log.Username.split('\')[1])) {
+                            continue
+                        }
+                    }
+
+
+                    # 2) Exclude logs created before specified time range
+                    if ($null -ne $Filter.TimeStart) {
+                        if ($log.TimeGenerated -lt $filter.TimeStart) {
+                            continue
+                        }
+                    }
+
+
+                    # 3) Exclude logs created after specified time range
+                    if ($null -ne $Filter.TimeEnd) {
+                        if ($log.TimeGenerated -gt $Filter.TimeEnd) {
+                            continue
+                        }
+                    }
+
+
+                    # 4) Include only logs with matching event codes, unless * is in the event codes list
+                    if (-not $Filter.EventCodes.Contains("*")) {
+                        if (-not $Filter.EventCodes.Contains($log.EventID)) {
+                            continue
+                        }
+                    }
+
+
+                    #  5) Exclude unselected event types
+                    if (-not $Filter.EventTypes.Contains($log.EntryType.ToString().ToLower())) {
+                        continue
+                    }
+
+                    $found += 1
+                    
+                    $Filtered_Set.$logtype.add($log)
+                }
+            }
+
+            if ($found -ne 0) {
+                $Filtered_Set.loaded = $true
+            }
+
+        }
+
+        Return $Filtered_Set
+    }
+
 
 }
 
