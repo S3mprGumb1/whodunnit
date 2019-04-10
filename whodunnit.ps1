@@ -1,4 +1,88 @@
-﻿
+﻿<#
+    .SYNOPSIS
+        Manipulate Windows Event Logs from the comfort and familiarity of a PowerShell Environment.
+
+    .LINK
+        https://github.com/1cysw0rdk0/whodunnit
+#>
+Param (
+
+        # Specify a previously exported file to read in.
+        [Parameter( 
+            Mandatory=$true, 
+            ParameterSetName = "ImportFromFile",
+            HelpMessage = "Specify an input file."
+        )]
+        [ValidateScript({ Test-Path -LiteralPath $_ })]
+        [Alias("i")]
+        [System.IO.Path]$InputFile,
+
+
+        # Load logs from local host.
+        [Parameter(
+            Mandatory=$true, 
+            ParameterSetName = "ImportFromLocal"
+        )]
+        [Alias("l")]
+        [switch]$InputLocal,
+
+
+        # Create a new filter file.
+        [Parameter(
+            Mandatory=$true, 
+            ParameterSetName = "CreateFilter"
+        )]
+        [Alias("c")]
+        [switch]$CreateFilter = $false,
+
+
+        # Specify an outfile. File is overwritten if it exists.
+        [Parameter(
+            ParameterSetName = "ImportFromFile", 
+            Mandatory=$false,
+            HelpMessage = "Specify an output path."
+        )]
+        [Parameter(
+            ParameterSetName = "ImportFromLocal", 
+            Mandatory=$false,
+            HelpMessage = "Specify an output path."
+        )]
+        [Parameter(
+            ParameterSetName = "CreateFilter", 
+            Mandatory=$false,
+            HelpMessage = "Specify an output path."
+        )]
+        [ValidateScript({ Test-Path -LiteralPath $_ -IsValid })]
+        [Alias("o")]
+        [System.IO.Path]$OutputPath,
+
+
+        # Sepcify a previously created filter file to use.
+        [Parameter(
+            ParameterSetName = "ImportFromFile", 
+            Mandatory=$false,
+            HelpMessage = "Specify a filter file."
+        )]
+        [Parameter(
+            ParameterSetName = "ImportFromLocal",
+            Mandatory=$false,
+            HelpMessage = "Specify a filter file."
+        )]
+        [Alias("f")]
+        [System.IO.Path]$FilterPath,
+
+    
+        # Spawn an interactive session
+        [Parameter(
+            ParameterSetName = "UseGUI",
+            Mandatory=$false
+        )]
+        [switch]$UseGUI=$true
+
+)
+
+# Imports
+. $PSScriptRoot\Write-Menu\Write-Menu.ps1
 
 # Structures 
 class Log_Struct {
@@ -172,7 +256,6 @@ class Menu_Functions {
         Return $Filter
     }
 }
-
 
 class Init_Functions {
 
@@ -360,9 +443,24 @@ class Filter_Functions {
             if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Filter}
         }
 
-        $UserInput = Read-Host "whodunnit> filter> import path> "
-        if ($null -eq $UserInput) {Return $Filter}
-        Return Import-Clixml -LiteralPath $UserInput
+        $UserInput = $null
+        $UserInput = Read-Host "whodunnit> filter> import path> " 
+        
+
+        if ($null -eq $UserInput) {
+            $init = [Init_Functions]::new()
+            Return $init.Init_Filter()
+        }
+
+        try {
+           Return Import-Clixml -LiteralPath $UserInput
+        } catch {
+            Read-Host "Error: File not found! Overwriting current filter with an empty filter."
+            $init = [Init_Functions]::new()
+            Return $init.Init_Filter()
+        }
+
+        
     }
 
     <# Handles editing the username list. #>
@@ -666,5 +764,107 @@ class Filter_Functions {
 
 }
 
-$menu = New-Object -TypeName Menu_Functions
-$menu.write_menu_main($menu)
+class New_Menu_Functions {
+
+    [void]main() {
+
+        $menus = [New_Menu_Functions]::new()
+        $load = [Load_Functions]::new()
+        $export = [Export_Functions]::new()
+        $filt = [Filter_Functions]::new()
+        $inits = [Init_Functions]::new()
+
+        $Logs = $inits.Init_Log()
+        $Filtered = $inits.Init_Log()
+        $Filter = $inits.Init_Filter()
+
+        do {
+
+            $main = Write-Menu -Title 'Whodunnit >' -Sort -Entries @{
+                '1) Load Logs' = '$Logs = $menus.load_menu($Logs)'
+                '2) Active Filter' = '$Filter = $menus.filter_menu($Filter)'
+                '3) Apply Filter' = '$Filtered = $filt.Apply_Filter($Logs, $Filter)'
+                '4) Show Logs' = '$export.Show_Log_Stats($Logs, $Filtered)'
+                '5) Export Logs' = '$export.Export_Logs($Filtered)'
+                '6) Exit' = 'break'
+            }
+
+        } while ($true)
+    }
+    
+    [Log_Struct]load_menu($Logs) {
+        
+        $load = [Load_Functions]::new()
+
+        $load_r = Write-Menu -Title 'Whodunnit > Load >' -Sort -Entries @{
+            '1) Read From File' = '$Logs = $load.Import_Logs($Logs)'
+            '2) Read From Local Host' = '$Logs = $load.Read_From_Local($Logs)'
+            '3) Read From Remote Host' = '$Logs = $Logs'
+        }
+
+        Return $Logs
+    }
+
+    [Filter_Struct]filter_menu($Filter) {
+
+        $filters = [Filter_Functions]::new()
+        $menus = [New_Menu_Functions]::new()
+
+        $filter_r = Write-Menu -Title 'Whodunnit > Filter >' -Sort -Entries @{
+            '1) Load Filter' = '$Filter = $filters.Import_Filter($Filter)'
+            '2) Edit Filter' = '$Filter = $menus.edit_menu($Filter)'
+            '3) Export Filter' = '$filters.Export_Filter($Filter)'
+        }
+
+        Return $Filter
+    }
+
+    [Filter_Struct]edit_menu($Filter) {
+
+        $edit = [Filter_Functions]::new()
+
+        $edit_r = Write-Menu -Title 'Whodunnit > Filter > Edit >' -Sort -Entries @{
+            '1) Username' = '$Filter.Usernames = $edit.Username_Edit($Filter)'
+            '2) Time Window' = '$Filter = $edit.TimeRange_Edit($Filter)'
+            '3) Event Codes' = '$Filter.EventCodes = $edit.EventCode_Edit($Filter)'
+            '4) Event Types' = '$Filter.EventTypes = $edit.EventTypes_Edit(($Filter)'
+            '5) Event Sources' = '$Filter.EventSources = $edit.EventSources_Edit($Filter)'
+            
+        }
+
+        Return $Filter
+    }
+
+    
+}
+
+<# 
+([New_Menu_Functions]::new()).main()
+#>
+
+function Start-CLI {
+    if ($CreateFilter) {
+        Export-Clixml -Path $OutputPath -InputObject ([Init_Functions]::new()).Init_Filter()
+    } elseif ($InputLocal) {
+
+    } elseif ($InputFile) {
+
+    } else {Write-Output "how'd you get here?"; Pause}
+
+
+}
+
+function main {
+    
+    if ($args.Count -eq 0 -or $UseGUI) {
+        
+        # Begin GUI
+        ([Menu_Functions]::new()).Write_Menu_Main($menu)
+
+    } else { Start-CLI }
+
+}
+
+
+main
+
