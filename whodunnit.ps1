@@ -112,17 +112,12 @@ class Filter_Struct {
 # Functions
 class Menu_Functions {
     
-    static [void]Write_Menu_Main($menu) {
-
-        $inits = [Init_Functions]::new()
-        $menu = [Menu_Functions]::new()
-        $filt = [Filter_Functions]::new()
-        $exp = [Export_Functions]::new()  
+    static [void]Write_Menu_Main() {
 
         $UserInput = 0
-        $Logs = [Log_Struct]::new()
-        $Filtered = [Log_Struct]::new()
-        $Filter = $inits.Init_Filter()
+        $Logs = [Init_Functions]::Init_Log()
+        $Filtered = [Init_Functions]::Init_Log()
+        $Filter = [Init_Functions]::Init_Filter()
 
         do {
 
@@ -142,11 +137,11 @@ class Menu_Functions {
             $UserInput = Read-Host "whodunnit> "
         
             switch($UserInput) {
-                '1' {$Logs = $menu.Write_Menu_Load($Logs)}
-                '2' {$Filter = $menu.Write_Menu_Filter($Filter, $Logs)}
-                '3' {$Filtered = $filt.Apply_Filter($Filter, $Logs)}
-                '4' {$exp.Show_Log_Stats($Logs, $Filtered)}
-                '5' {Export_Logs($Filtered)}
+                '1' {$Logs = [Menu_Functions]::Write_Menu_Load($Logs)}
+                '2' {$Filter = [Menu_Functions]::Write_Menu_Filter($Filter, $Logs)}
+                '3' {$Filtered = [Filter_Functions]::Apply_Filter($Filter, $Logs)}
+                '4' {[Export_Functions]::Show_Log_Stats($Logs, $Filtered)}
+                '5' {[Export_Functions]::Export_Logs($Filtered)}
             }
     
         } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
@@ -156,7 +151,6 @@ class Menu_Functions {
     static [Log_Struct]Write_Menu_Load($Logs) {
         
         $UserInput = 0
-        $load = [Load_Functions]::new()
 
         do {
 
@@ -175,8 +169,8 @@ class Menu_Functions {
             $UserInput = Read-Host "whodunnit> load> "
             
             switch($UserInput) {
-                '1' {Return $load.Import_Logs($Logs)}
-                '2' {Return $load.Read_From_Local($Logs)}
+                '1' {Return [Load_Functions]::Import_Logs($Logs)}
+                '2' {Return [Load_Functions]::Read_From_Local($Logs)}
                 '3' {Return $Logs}
                 '4' {Return $Logs}
             }
@@ -188,9 +182,7 @@ class Menu_Functions {
 
     static [Filter_Struct]Write_Menu_Filter($Filter, $Logs) {
         
-        $UserInput = 0
-        $filters = [Filter_Functions]::new()
-        $menus = [Menu_Functions]::new() 
+        $UserInput = 0 
 
         do {
 
@@ -209,9 +201,9 @@ class Menu_Functions {
             $UserInput = Read-Host "whodunnit> filter>"
             
             switch($UserInput) {
-                '3' {$filters.Export_Filter($Filter)}
-                '1' {$Filter = $filters.Import_Filter($Filter)}
-                '2' {$Filter = $menus.Write_Menu_Edit($Filter)}
+                '3' {[Filter_Functions]::Export_Filter($Filter)}
+                '1' {$Filter = [Filter_Functions]::Import_Filter($Filter)}
+                '2' {$Filter = [Menu_Functions]::Write_Menu_Edit($Filter)}
             }
         
         } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3")
@@ -222,8 +214,6 @@ class Menu_Functions {
     static [Filter_Struct]Write_Menu_Edit($Filter) {
         
         $UserInput = 0
-        $Bak = $Filter
-        $edit = [Filter_Functions]::new()
 
         do {
 
@@ -244,11 +234,11 @@ class Menu_Functions {
             $UserInput = Read-Host "whodunnit> filter> edit> "
             
             switch($UserInput) {
-                '1' {$Filter.Usernames = $edit.Username_Edit($Filter)}
-                '2' {$Filter = $edit.TimeRange_Edit($Filter)}
-                '3' {$Filter.EventCodes = $edit.EventCode_Edit($Filter)}
-                '4' {$Filter.EventTypes = $edit.EventTypes_Edit($Filter)}
-                '5' {$Filter.EventSources = $edit.EventSources_Edit($Filter)}
+                '1' {$Filter.Usernames = [Filter_Functions]::Username_Edit($Filter)}
+                '2' {$Filter = [Filter_Functions]::TimeRange_Edit($Filter)}
+                '3' {$Filter.EventCodes = [Filter_Functions]::EventCode_Edit($Filter)}
+                '4' {$Filter.EventTypes = [Filter_Functions]::EventTypes_Edit($Filter)}
+                '5' {$Filter.EventSources = [Filter_Functions]::EventSources_Edit($Filter)}
             }
         
         } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5")
@@ -302,8 +292,12 @@ class Load_Functions {
             if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Logs}
         } 
         
-        Return Import-Clixml -LiteralPath (Read-Host "whodunnit> load> import path> ")
-        
+        Return Import-Clixml -LiteralPath $InputPath  
+    }
+
+    static [Log_Struct]Import_Logs($Logs) {
+        $InputPath = Read-Host "whodunnit> load> import path> "
+        Return [Load_Functions]::Import_Logs($Logs, $InputPath)
     }
 
     <# Reads in logs from the local machine #>
@@ -477,7 +471,7 @@ class Filter_Functions {
     <# Handles editing the username list. #>
     static [System.Collections.ArrayList]Username_Edit($Filter) {
         
-        $NewUser = " "
+        $NewUser = ""
         $Users = $Filter.Usernames
 
         do  {
@@ -492,7 +486,9 @@ class Filter_Functions {
             Write-Host "}"
 
             $NewUser = Read-Host "Add / Remove > "
-            if ($null -eq $NewUser) {break} else {$NewUser = $NewUser.ToLower()}
+            if ($null -eq $NewUser) {break} 
+            if ("" -eq $NewUser) {break}
+            else {$NewUser = $NewUser.ToLower()}
 
             $new = $true
             for ($i = 0; $i -lt $Users.Count; $i++) {
@@ -529,7 +525,8 @@ class Filter_Functions {
             $NewCode = Read-Host 'Add / Remove [$ErrorCode | * | reset]> '
             Write-Host "}"
 
-            if ($null -eq $NewCode) {break} else {}
+            if ($null -eq $NewCode) {break}
+            if ("" -eq $NewCode) {break}
             if ($NewCode -eq "reset") {$Codes = [System.Collections.ArrayList]::new(); $Codes.Add("*"); continue}
             
             $new = $true
@@ -885,7 +882,6 @@ function Start-CLI {
         Write-Host $Logs
     }
 
-
 }
 
 function main {
@@ -893,12 +889,11 @@ function main {
     if ($args.Count -eq 0 -or $UseGUI) {
         
         # Begin GUI
-        ([Menu_Functions]::new()).Write_Menu_Main($menu)
+        [Menu_Functions]::Write_Menu_Main()
 
     } else { Start-CLI }
 
 }
-
 
 main
 
