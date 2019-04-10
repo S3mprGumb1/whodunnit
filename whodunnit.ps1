@@ -1,871 +1,899 @@
-﻿# Import for Write-Menu, unused in the current state
-# if I manage to get the commented block at the bottom working, this will be needed
-#. $PSScriptRoot\Write-Menu\Write-Menu.ps1
+﻿<#
+    .SYNOPSIS
+        Manipulate Windows Event Logs from the comfort and familiarity of a PowerShell Environment.
 
-<#
-    Parameter Declaration for CLI use.
-    ## TODO ## 
-    Add copy of Get-Help ./whodunnit.ps1 here
-    ## ODOT ##
+    .LINK
+        https://github.com/1cysw0rdk0/whodunnit
 #>
 Param (
 
-    [parameter(Mandatory=$true, ParameterSetName = "ImportFromFile")]
-        [ValidateNotNullOrEmpty()]
-        [alias("Input-File")]
-        [String]$i,
-    
-    [parameter(Mandatory=$false, ParameterSetName = "ImportFromFile")]
-    [parameter(ParameterSetName = "ImportFromLocal")]
-    [parameter(ParameterSetName = "CreateFilter")]
-    [parameter(ParameterSetName = "LoadRemote")]
-        [ValidateNotNullOrEmpty()]
-        [alias("Filter-File")]
-        [String]$f,
-    
-    [parameter(Mandatory=$false, ParameterSetName = "ImportFromFile")]
-    [parameter(ParameterSetName = "ImportFromLocal")]
-    [parameter(ParameterSetName = "CreateFilter")]
-    [parameter(ParameterSetName = "LoadRemote")]
-        [ValidateNotNullOrEmpty()]
-        [alias("Output-File")]
-        [String]$o,
+        # Specify a previously exported file to read in.
+        [Parameter( 
+            Mandatory=$true, 
+            ParameterSetName = "ImportFromFile",
+            HelpMessage = "Specify an input file."
+        )]
+        [ValidateScript({ Test-Path -LiteralPath $_ })]
+        [Alias("i")]
+        [System.IO.Path]$InputFile,
 
-    [parameter(Mandatory=$true, ParameterSetName = "ImportFromLocal")]
-        [alias("Load-Local")]
-        [switch]$l = $false,
+
+        # Load logs from local host.
+        [Parameter(
+            Mandatory=$true, 
+            ParameterSetName = "ImportFromLocal"
+        )]
+        [Alias("l")]
+        [switch]$InputLocal,
+
+
+        # Create a new filter file.
+        [Parameter(
+            Mandatory=$true, 
+            ParameterSetName = "CreateFilter"
+        )]
+        [Alias("c")]
+        [switch]$CreateFilter = $false,
+
+
+        # Specify an outfile. File is overwritten if it exists.
+        [Parameter(
+            ParameterSetName = "ImportFromFile", 
+            Mandatory=$false,
+            HelpMessage = "Specify an output path."
+        )]
+        [Parameter(
+            ParameterSetName = "ImportFromLocal", 
+            Mandatory=$false,
+            HelpMessage = "Specify an output path."
+        )]
+        [Parameter(
+            ParameterSetName = "CreateFilter", 
+            Mandatory=$false,
+            HelpMessage = "Specify an output path."
+        )]
+        [ValidateScript({ Test-Path -LiteralPath $_ -IsValid })]
+        [Alias("o")]
+        [System.IO.Path]$OutputPath,
+
+
+        # Sepcify a previously created filter file to use.
+        [Parameter(
+            ParameterSetName = "ImportFromFile", 
+            Mandatory=$false,
+            HelpMessage = "Specify a filter file."
+        )]
+        [Parameter(
+            ParameterSetName = "ImportFromLocal",
+            Mandatory=$false,
+            HelpMessage = "Specify a filter file."
+        )]
+        [Alias("f")]
+        [System.IO.Path]$FilterPath,
+
     
-    [parameter(Mandatory=$true, ParameterSetName = "CreateFilter")]
-        [alias("Create-Filter")]
-        [switch]$c = $false
-    
+        # Spawn an interactive session
+        [Parameter(
+            ParameterSetName = "UseGUI",
+            Mandatory=$false
+        )]
+        [switch]$UseGUI=$true
+
 )
 
-# Set up for use in an interactive environment when no arguments passed
+# Imports
+. $PSScriptRoot\Write-Menu\Write-Menu.ps1
 
-<#
-    Functions used by the command line interface
-    Contains the backbone for the CLI, and the subroutines used
-    To create filters, export local logs matching a filter, and
-    export remote logs matching a filter, when it's implemented
-#> 
-
-function CLI-Backbone {
-    
-    if ($c) {
-        Export-Filter-CLI $o $f
-        return 
-    }
-
-    if ($l) {
-        Export-Local-Logs $o $f
-        return
-    }
-
-    if ($r) {
-        Write-Error "Not Implemented yet... whoopsie"
-    }
+# Structures 
+class Log_Struct {
+    [System.Collections.ArrayList]$Application
+    [System.Collections.ArrayList]$HardwareEvents
+    [System.Collections.ArrayList]$InternetExplorer
+    [System.Collections.ArrayList]$KeyManagement
+    [System.Collections.ArrayList]$OAlerts
+    [System.Collections.ArrayList]$Security
+    [System.Collections.ArrayList]$System
+    [System.Collections.ArrayList]$WindowsAzure
+    [System.Collections.ArrayList]$WindowsPowershell
+    [bool]$loaded = $false
 }
 
-function Export-Filter-CLI {
-    param ($FilePath, $FilterPath)
-
-    if ($null -eq $FilterPath) {
-        $Filter = Initialize-Filter
-    } else {
-        $Filter = Import-Filter-Helper $FilterPath
-    }
-
-    if ($null -ne $Filter) {
-        Export-Filter-Script $FilePath $Filter
-        return
-    } 
-
-    if ($null -eq $FilterPath) {
-        Write-Error "Error: Failed to Initialize Filter!"
-    } else {
-        Write-Error "Error: Failed to load filter from $FilterPath!"
-    }
+class Filter_Struct {
+    [System.Collections.ArrayList]$Usernames
+    [datetime]$TimeStart
+    [datetime]$TimeEnd
+    [System.Collections.ArrayList]$EventCodes
+    [System.Collections.ArrayList]$EventTypes
+    [System.Collections.ArrayList]$EventSources
+    [Log_Struct]$MatchingLogs
+    [bool]$loaded
 }
 
-function Export-Local-Logs {
-    param ($OutPath, $FilterPath)
-
-    $filter = Import-Filter-Helper $FilterPath
-
-    if ($null -eq $filter) {
-        Write-Error "Error: Failed to load filter from $FilterPath"
-    }
-
-    $logs = Read-From-Local
+# Functions
+class Menu_Functions {
     
-    $filtered = Filter-Logs-CLI $logs $filter
+    static [void]Write_Menu_Main() {
 
-    Export-Logs-Script $filtered $OutPath
-}
+        $UserInput = 0
+        $Logs = [Init_Functions]::Init_Log()
+        $Filtered = [Init_Functions]::Init_Log()
+        $Filter = [Init_Functions]::Init_Filter()
 
+        do {
 
-<#
-    Functions used to control the User Experience are here
-    Contains the backbone for the 'GUI' currently implemented
-    In the future, it will contain the fancier GUI, once it is functional
-    Will contain the logic to switch between the fancy and simple menu,
-    favoring the fancy menu where supported
-#>
-function Write-Lame-Menu-Main {
-
-    do {
-        Clear-Host
-        Write-Host "============================="
-        Write-Host "          Whodunnit"
-        Write-Host "============================="
-        Write-Host
-        Write-Host "1) Load Logs"
-        Write-Host "2) Active Filter"
-        Write-Host "3) Display Logs"
-        Write-Host "4) Export Logs"
-        Write-Host
+            Clear-Host
+            Write-Host "============================="
+            Write-Host "          Whodunnit"
+            Write-Host "============================="
+            Write-Host
+            Write-Host "1) Load Logs"
+            Write-Host "2) Active Filter"
+            Write-Host "3) Apply Filter"
+            Write-Host "4) Show Logs"
+            Write-Host "5) Export Logs"
+            Write-Host
 
     
-        $UserInput = Read-Host "whodunnit> "
+            $UserInput = Read-Host "whodunnit> "
         
-        switch($UserInput) {
-            '1' {Write-Lame-Menu-Load}
-            '2' {Write-Lame-Menu-Filter}
-            '3' {Show-Log-Stats}
-            '4' {Export-Logs}
-        }
+            switch($UserInput) {
+                '1' {$Logs = [Menu_Functions]::Write_Menu_Load($Logs)}
+                '2' {$Filter = [Menu_Functions]::Write_Menu_Filter($Filter, $Logs)}
+                '3' {$Filtered = [Filter_Functions]::Apply_Filter($Filter, $Logs)}
+                '4' {[Export_Functions]::Show_Log_Stats($Logs, $Filtered)}
+                '5' {[Export_Functions]::Export_Logs($Filtered)}
+            }
     
-    } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
+        } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
 
-}
+    }
 
-function Write-Lame-Menu-Load {
-
-    do {
-        Clear-Host
-        Write-Host "============================="
-        Write-Host "      Whodunnit > Load"
-        Write-Host "============================="
-        Write-Host
-        Write-Host "1) Read From File"
-        Write-Host "2) Read From Local Machine"
-        Write-Host "3) Read From Remote Machine [NI]"
-        Write-Host "4) Back"
-        Write-Host
-
-    
-        $UserInput = Read-Host "whodunnit> Load> "
+    static [Log_Struct]Write_Menu_Load($Logs) {
         
-        switch($UserInput) {
-            '1' {Import-Logs}
-            '2' {Read-From-Local; Return}
-            '3' {Not-Yet-Implemented}
-            '4' {Return}
-        }
+        $UserInput = 0
+
+        do {
+
+            Clear-Host
+            Write-Host "============================="
+            Write-Host "      Whodunnit > Load"
+            Write-Host "============================="
+            Write-Host
+            Write-Host "1) Read From File"
+            Write-Host "2) Read From Local Machine"
+            Write-Host "3) Read From Remote Machine [NI]"
+            Write-Host "4) Back"
+            Write-Host
     
-    } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
-
-}
-
-function Write-Lame-Menu-Filter {
-
-    do {
-        Clear-Host
-        Write-Host "============================="
-        Write-Host "     Whodunnit > Filter "
-        Write-Host "============================="
-        Write-Host
-        Write-Host "1) Load Filter"
-        Write-Host "2) Edit Filter"
-        Write-Host "3) Export Filter"
-        Write-Host "4) Apply"
-        Write-Host "5) Back"
-        Write-Host
-
-    
-        $UserInput = Read-Host "whodunnit> filter>"
         
-        switch($UserInput) {
-            '3' {Export-Filter}
-            '1' {Import-Filter}
-            '2' {Write-Lame-Menu-Filter-Edit}
-            '4' {Write-Host "Filtering Logs..."; Filter-Logs}
-        }
-    
-    } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
-    
-}
-
-function Write-Lame-Menu-Filter-Edit {
-
-    do {
-        Clear-Host
-        Write-Host "============================="
-        Write-Host "  Whodunnit > Filter > Edit"
-        Write-Host "============================="
-        Write-Host
-        Write-Host "1) Username"
-        Write-Host "2) Time Window"
-        Write-Host "3) Event Codes"
-        Write-Host "4) Event Types"
-        Write-Host "5) Event Sources"
-        Write-Host "6) Back"
-        Write-Host
-
-    
-        $UserInput = Read-Host "whodunnit> filter> edit> "
+            $UserInput = Read-Host "whodunnit> load> "
+            
+            switch($UserInput) {
+                '1' {Return [Load_Functions]::Import_Logs($Logs)}
+                '2' {Return [Load_Functions]::Read_From_Local($Logs)}
+                '3' {Return $Logs}
+                '4' {Return $Logs}
+            }
         
-        switch($UserInput) {
-            '1' {Edit-Filter-User}
-            '2' {Edit-Filter-Time}
-            '3' {Edit-Filter-EventCodes}
-            '4' {Edit-Filter-EventTypes}
-            '5' {Edit-Filter-EventSources}
+        } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4")
+    
+        return $Logs
+    }
+
+    static [Filter_Struct]Write_Menu_Filter($Filter, $Logs) {
+        
+        $UserInput = 0 
+
+        do {
+
+            Clear-Host
+            Write-Host "============================="
+            Write-Host "     Whodunnit > Filter "
+            Write-Host "============================="
+            Write-Host
+            Write-Host "1) Load Filter"
+            Write-Host "2) Edit Filter"
+            Write-Host "3) Export Filter"
+            Write-Host "4) Back"
+            Write-Host
+
+        
+            $UserInput = Read-Host "whodunnit> filter>"
+            
+            switch($UserInput) {
+                '3' {[Filter_Functions]::Export_Filter($Filter)}
+                '1' {$Filter = [Filter_Functions]::Import_Filter($Filter)}
+                '2' {$Filter = [Menu_Functions]::Write_Menu_Edit($Filter)}
+            }
+        
+        } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3")
+
+        Return $Filter
+    }
+
+    static [Filter_Struct]Write_Menu_Edit($Filter) {
+        
+        $UserInput = 0
+
+        do {
+
+            Clear-Host
+            Write-Host "============================="
+            Write-Host "  Whodunnit > Filter > Edit"
+            Write-Host "============================="
+            Write-Host
+            Write-Host "1) Username"
+            Write-Host "2) Time Window"
+            Write-Host "3) Event Codes"
+            Write-Host "4) Event Types"
+            Write-Host "5) Event Sources"
+            Write-Host "6) Back"
+            Write-Host
+    
+        
+            $UserInput = Read-Host "whodunnit> filter> edit> "
+            
+            switch($UserInput) {
+                '1' {$Filter.Usernames = [Filter_Functions]::Username_Edit($Filter)}
+                '2' {$Filter = [Filter_Functions]::TimeRange_Edit($Filter)}
+                '3' {$Filter.EventCodes = [Filter_Functions]::EventCode_Edit($Filter)}
+                '4' {$Filter.EventTypes = [Filter_Functions]::EventTypes_Edit($Filter)}
+                '5' {$Filter.EventSources = [Filter_Functions]::EventSources_Edit($Filter)}
+            }
+        
+        } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5")
+
+        Return $Filter
+    }
+}
+
+class Init_Functions {
+
+    static [Filter_Struct]Init_Filter() {
+        $Filter = [Filter_Struct]::new()
+
+        #Initialize
+        $Filter.Usernames = [System.Collections.ArrayList]::new()
+        $Filter.TimeStart = [datetime]::MinValue
+        $Filter.TimeEnd = [datetime]::MaxValue
+        $Filter.EventCodes = [System.Collections.ArrayList]::new()
+        $Filter.EventTypes = [System.Collections.ArrayList]::new()
+        $Filter.EventSources = [System.Collections.ArrayList]::new()
+        $Filter.loaded = $false
+
+        #Defualts
+        $Filter.EventCodes.Add("*")
+        $Filter.TimeStart = [datetime]::MinValue
+        $Filter.TimeEnd = [datetime]::Now
+
+        Return $Filter
+    }
+
+    static [Log_Struct]Init_Log() {
+        $Log = [Log_Struct]::new()
+
+        foreach ($event in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
+            $Log.$event = [System.Collections.ArrayList]::new()
         }
-    
-    } until ($UserInput -ne "1" -and $UserInput -ne "2" -and $UserInput -ne "3" -and $UserInput -ne "4" -and $UserInput -ne "5")
-    
-    Write-Output "Filtering Logs..."
-    Filter-Logs
+
+        Return $Log
+    }
 }
 
-
-
-<#
-    Contains the 'constructors' for the two different data structures used
-#>
-function Initialize-Filter {
-    param ($Usernames, $TimeStart, $TimeEnd, $EventCodes, $EventTypes, $EventSources)
-
-    $filter = New-Object psobject
-
-    $filter | add-member -type NoteProperty -Name Usernames -Value $Usernames
-    $filter | add-member -type NoteProperty -Name TimeStart -Value $TimeStart
-    $filter | add-member -type NoteProperty -Name TimeEnd -Value $TimeEnd
-    $filter | add-member -type NoteProperty -Name EventCodes -Value @("*")
-    $filter | add-member -type NoteProperty -Name EventTypes -Value $EventTypes
-    $filter | add-member -type NoteProperty -Name EventSources -Value $EventSources
-
-    return $filter
-}
-
-function Initialize-Log-Struct {
+class Load_Functions {
     
-    $logs = New-Object psobject
-
-    $logs | Add-Member -type NoteProperty -Name Application -Value (New-Object System.Collections.ArrayList)
-    $logs | Add-Member -Type NoteProperty -Name HardwareEvents -Value (New-Object System.Collections.ArrayList)
-    $logs | Add-Member -Type NoteProperty -Name InternetExplorer -Value (New-Object System.Collections.ArrayList)
-    $logs | Add-Member -Type NoteProperty -Name KeyManagement -Value (New-Object System.Collections.ArrayList)
-    $logs | Add-Member -Type NoteProperty -Name OAlerts -Value (New-Object System.Collections.ArrayList)
-    $logs | Add-Member -Type NoteProperty -Name Security -Value (New-Object System.Collections.ArrayList)
-    $logs | Add-Member -Type NoteProperty -Name System -Value (New-Object System.Collections.ArrayList)
-    $logs | Add-Member -Type NoteProperty -Name WindowsAzure -Value (New-Object System.Collections.ArrayList)
-    $logs | Add-Member -Type NoteProperty -Name WindowsPowershell -Value (New-Object System.Collections.ArrayList)
-    $logs | Add-Member -Type NoteProperty -Name Loaded -Value $false
-
-    return $logs
-}
-
-
-
-<#
-    The following functions *should* be functional in an environment that 
-    does not use global variables, i.e. imported into a third party script, 
-    or on the powershell CLI.
-
-    Due to the nature of powershell's weird method of determining returns, 
-    User interaction is not possible when these functions are used in their 
-    imported mode. When used with the variable '$script:UseGlobals', User
-    Interaction is enabled, however the functions assume the use of global variables,
-    and do not return anything helpful.
-#>
-
-function Read-From-Local {
-
-    if ($script:UseGlobals -eq $true) {
-        if ($Logs.Loaded) {
+    <# Reads in logs from a previously exported logset #>
+    static [Log_Struct]Import_Logs($Logs, $InputPath) {
+        
+        if ($Logs.loaded) {
             Write-Host "Logs are already loaded!"
-            $UserInput = Read-Host "Overwrite? [y/n]"
-
-            if ($UserInput -ne "y" -and $UserInput -ne "yes") {Return}
-        }
+            $UserInput = Read-Host "Overwrite? [y/N]> "
+            
+            if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Logs}
+        } 
+        
+        Return Import-Clixml -LiteralPath $InputPath  
     }
 
-    
-    $LogTypes = "Application", "HardwareEvents", "Internet Explorer", "Key Management Service", "OAlerts", "System", "Windows Azure", "Windows PowerShell", "Security"
-    
-    for ($i = 0; $i -lt $LogTypes.Length; $i++) {
-        
-        $LogType = $LogTypes[$i]
-        $Count = $i + 1
-        Write-Progress  -Activity "Loading Event Logs from Local Host" `
+    static [Log_Struct]Import_Logs($Logs) {
+        $InputPath = Read-Host "whodunnit> load> import path> "
+        Return [Load_Functions]::Import_Logs($Logs, $InputPath)
+    }
+
+    <# Reads in logs from the local machine #>
+    static [Log_Struct]Read_From_Local($Logs) {
+
+        # Prevent Overwrites
+        if ($Logs.loaded) {
+            Write-Host "Logs are already loaded!"
+            $UserInput = Read-Host "Overwrite? [y/N]> "
+            
+            if ($null -eq $UserInput) {Return $Logs}
+            if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Logs}
+        }
+
+        $LogTypes = "Application", "HardwareEvents", "Internet Explorer", "Key Management Service", "OAlerts", "System", "Windows Azure", "Windows PowerShell", "Security"
+
+        # Loop executes for every log type
+        for ($i = 0; $i -lt $LogTypes.Length; $i++) {
+
+            $LogType = $LogTypes[$i]
+            $Count = $i + 1
+
+            # Display Progress
+            Write-Progress  -Activity "Loading Event Logs from Local Host" `
                         -Status "$Count of 9" `
                         -CurrentOperation "Loading $LogType Logs" `
                         -PercentComplete ($Count / 9 * 100) `
                         -Id 1
-
-
-        if ($LogType -eq "Security") {
-
-            $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-            if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-                if ($script:UseGlobals -eq $true) { Write-Host "Warning! Insignificant priviledges to load security logs!"; }
-                Continue
-            }
-        }
-        
-        
-        switch ($i) {
-            0 {$script:Logs.Application = Read-Local-Script("Application")}
-            1 {$script:Logs.HardwareEvents = Read-Local-Script("HardwareEvents")}
-            2 {$script:Logs.InternetExplorer = Read-Local-Script('Internet Explorer')}
-            3 {$script:Logs.KeyManagement = Read-Local-Script('Key Management Service')}
-            4 {$script:Logs.OAlerts = Read-Local-Script('OAlerts')}
-            5 {$script:Logs.System = Read-Local-Script('System')}
-            6 {$script:Logs.WindowsAzure = Read-Local-Script('Windows Azure')}
-            7 {$script:Logs.WindowsPowershell = Read-Local-Script('Windows PowerShell')}
-            8 {$script:Logs.Security = Read-Local-Script('Security')}
-
-        }
-    
-    }
-
-    if ($script:UseGlobals -eq $true) {
-        $Logs.Loaded = $true
-        Write-Progress -Activity "Loading Event Logs from Local Host" -Id 1 -Completed
-        return
-    }
-
-    $Logs
-
-}
-
-function Import-Filter {
-
-    if ($script:UseGlobals -eq $true) {
-	    $script:CurrentFilter = Import-Filter-Helper(Read-Host "whodunnit> filter> import path> ")
-        Write-Output "Filtering Logs..."
-        Filter-Logs
-
-    } else {
-
-        Import-Filter-Helper(Read-Host "filter import path> ")
-    }
-    
-}
-
-function Import-Filter-Helper {
-    param ($FilePath)
-    return Import-Clixml -LiteralPath $FilePath
-}
-
-function Import-Logs {
-    if ($script:UseGlobals -eq $true) {
-        if ($Logs.Loaded) {
-            Write-Host "Logs are already loaded!"
-            $UserInput = Read-Host "Overwrite? [y/n]"
-
-            if ($UserInput -ne "y" -and $UserInput -ne "yes") {Return}
-        }
-        $script:Logs = Read-Logs-From-File-Helper(Read-Host "whodunnit> load> import path> ")
-        return
-    }
-
-    Read-Logs-From-File-Helper(Read-Host "log import path> ")
-}
-
-function Export-Logs-Script {
-    param ($InputObject, $path)
-    Export-Clixml -InputObject $InputObject -LiteralPath $path
-}
-
-function Read-Local-Script {
-    param ($LogType)
-
-    $LogCounts = (Get-EventLog -List | Where-Object Log -EQ $LogType).Entries.Count
-
-    if ($LogCounts -eq 0) {Return $null}
-
-    Return Get-EventLog -LogName $LogType 
-}
-
-function Export-Filter-Script {
-    param ($FilePath, $Filter)
-
-    Export-Clixml -LiteralPath $FilePath -InputObject $Filter
-}
-
-function Read-Logs-From-File-Helper{
-    param ($FilePath)
-    return Import-Clixml -LiteralPath $FilePath
-}
-
-function Filter-Logs-CLI {
-    param ($logs, $filter)
-
-    if ($script:UseGlobals) {
-        $logs = $script:Logs
-        $filter = $script:CurrentFilter
-    }
-
-    # A new, empty log struct to store matching logs
-    $filteredSet = Initialize-Log-Struct
-
-
-    foreach ($logtype in $filter.EventSources) {
-
-        $found = 0
-        foreach ($event in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
             
-            # Check if the log type is selected before filtering
-            if ($logtype.replace(' ', '') -eq $event){
-                
-                # Acquire the logs from the relevant source
-                $workingSet = $logs.$logtype
+            # Check Perms on security logs
+            if ($LogType -eq "Security") {
 
-                foreach ($log in $workingSet) {
+                $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+                
+                if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+                    Write-Host "Warning! Insignificant priviledges to load security logs!"
+                    Continue
+                }
+            }
+
+            # If no logs, skip the call to set. Prevents error message.
+            if ((Get-EventLog -List | Where-Object Log -eq $LogType).Entries.Count -eq 0) {Continue}
+
+            # Sets the appropriate list to the contents of the log list
+            $Logs.($LogType.ToString().Replace(" ","")) = Get-EventLog -LogName $LogType 
+
+        }
+
+        $Logs.loaded = $true
+        Write-Progress -Activity "Loading Event Logs from Local Host" -Id 1 -Completed
+        Return $Logs
+
+    }
+
+}
+
+class Export_Functions {
+
+    <# Exports Logs as an xml object. very space intensive. #>
+    <# ROADMAP: Issue #2 #>
+    static [bool]Export_Logs($Logs, $OutputPath) {
+            
+        if ($Logs.loaded -eq $false) {
+            Read-Host "Error: No logs are loaded"
+            Return $false
+        }
+
+        try {
+            Export-Clixml -LiteralPath $OutputPath -InputObject $Logs
+        }
+        catch {
+            Read-Host "Error: Encountered Problem Writing File"
+            Return $false
+        }
+        
+        Return $true
+
+    }
+
+    <# Wrapper for interactive session #>
+    static [bool]Export_Logs($Logs) {
+        $OutputPath = Read-Host "whodunnit> Export Path> "
+        Return [Export_Functions]::Export_Logs($Logs, $OutputPath)
+    }
+
+    static [void]Show_Log_Stats($Logs, $Filtered) {
+        
+        Clear-Host
+        Write-Host "============"
+        Write-Host " Log Counts "
+        Write-Host "============"
+        Write-Host "Logtype              Unfiltered Count  Filtered Count"
+        Write-Host "+---------------------------------------------------+"
+        foreach ($logtype in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
+        
+            Write-Host -NoNewline "| "
+
+            $FiltCount = $Filtered.$logtype.Count.ToString()
+            $Count = $Logs.$logtype.Count.ToString()
+
+
+            $logtype = $logtype.PadRight(26, " ")
+            $FiltCount = $FiltCount.PadLeft(18 - $Count.Length, " ")
+
+            Write-Host "$logtype $Count $FiltCount" -NoNewline
+            Write-Host "    |"
+        }
+
+        Write-Host "+---------------------------------------------------+"
+        Read-Host
+    }
+    
+}
+
+class Filter_Functions {
+
+    <# Exports a filter as an xml object. #>
+    static [bool]Export_Filter($Filter, $OutputPath) {
+
+        try {
+            Export-Clixml -LiteralPath $OutputPath -InputObject $Filter
+        }
+        catch {
+            Read-Host "Error Encountered Problem Writing File"
+            Return $false
+        }
+
+        Return $true
+
+    }
+
+    <# Wrapper for interactive session #>
+    static [bool]Export_Filter($Filter) {
+        $OutputPath = Read-Host "whodunnit> filter> export path> "
+        Return [Filter_Functions]::Export_Filter($Filter, $OutputPath)
+    }
+
+    <# Imports a filter from an exported xml. #>
+    static [Filter_Struct]Import_Filter($Filter, $FilterPath) {
+
+        if ($Filter.loaded) {
+            Write-Host "A filter is already loaded!"
+            $UserInput = Read-Host "Overwrite? [y/N]> "
+
+            if ($null -eq $UserInput) {Return $Filter}
+            if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Filter}
+        }
+
+        if ($null -eq $FilterPath) {
+            $init = [Init_Functions]::new()
+            Return $init.Init_Filter()
+        }
+
+        try {
+           Return Import-Clixml -LiteralPath $FilterPath
+        } catch {
+            Read-Host "Error: File not found! Overwriting current filter with an empty filter."
+            $init = [Init_Functions]::new()
+            Return $init.Init_Filter()
+        }
+
+        
+    }
+
+    <# Wrapper for interactive session #>
+    static [Filter_Struct]Import_Filter($Filter) {
+        $FilterPath = Read-Host "whodunnit> filter> import path> "
+        Return [Filter_Functions]::Import_Filter($Filter, $FilterPath)
+    }
+    
+    <# Handles editing the username list. #>
+    static [System.Collections.ArrayList]Username_Edit($Filter) {
+        
+        $NewUser = ""
+        $Users = $Filter.Usernames
+
+        do  {
+            
+            Clear-Host
+            Write-Host "==============================="
+            Write-Host "   .. > Filter > Edit > Name "
+            Write-Host "==============================="
+            Write-Host "Negative Search Usernames {"
+
+            foreach ($user in $Users) {if($null -ne $user){Write-Host "    " $user}}
+            Write-Host "}"
+
+            $NewUser = Read-Host "Add / Remove > "
+            if ($null -eq $NewUser) {break} 
+            if ("" -eq $NewUser) {break}
+            else {$NewUser = $NewUser.ToLower()}
+
+            $new = $true
+            for ($i = 0; $i -lt $Users.Count; $i++) {
+                if ($Users[$i] -eq $NewUser) {
+                    $Users.Remove($NewUser)
+                    $new = $false
+                    break
+                } 
+            } 
+            if ($new) {$Users.Add($NewUser)}
+
+        } while ($null -ne $NewUser)
+        
+        Return $Users
+
+    }
+
+    <# Handles editing the event code list. #>
+    static [System.Collections.ArrayList]EventCode_Edit($Filter) {
+
+        $Codes = $Filter.EventCodes
+        $NewCode = " "
+
+        do {
+
+            Clear-Host
+            Write-Host "==============================="
+            Write-Host "   .. > Filter > Edit > Code "
+            Write-Host "==============================="
+            Write-Host "Positive Search Event Codes {"
+
+            foreach ($event in $Codes) {if($null -ne $event){Write-Host "    " $event}}
+
+            $NewCode = Read-Host 'Add / Remove [$ErrorCode | * | reset]> '
+            Write-Host "}"
+
+            if ($null -eq $NewCode) {break}
+            if ("" -eq $NewCode) {break}
+            if ($NewCode -eq "reset") {$Codes = [System.Collections.ArrayList]::new(); $Codes.Add("*"); continue}
+            
+            $new = $true
+            for ($i = 0; $i -lt $Codes.Count; $i++) {
+                if ($Codes[$i] -eq $NewCode) {
+                    $Codes.Remove($NewCode)
+                    $new = $false
+                    break
+                } 
+            } 
+            if ($new) {$Codes.Add($NewCode)}
+
+        } while ($null -ne $NewCode)
+
+        Return $Codes
+
+    }
+
+    <# Handles editing the event type list. #>
+    static [System.Collections.ArrayList]EventTypes_Edit($Filter) {
+
+        $Types = $Filter.EventTypes
+        $NewType = " "
+
+        do {
+
+            Clear-Host
+            Write-Host "==============================="
+            Write-Host "   .. > Filter > Edit > Type "
+            Write-Host "==============================="
+            Write-Host "Event Types Included {"
+
+            foreach ($EventType in @("Error", "Warning", "Information", "Success Audit", "Failure Audit")) {
+
+                if ($Types.Contains($EventType.ToLower())) {Write-Host "[X] " $EventType}
+                else {Write-Host "[ ] " $EventType}
+
+            }
+            Write-Host "}"
+            
+            $NewType = Read-Host "Toggle? > "
+
+            if ($null -eq $NewType) {break}
+
+            $new = $true
+            for ($i = 0; $i -lt $Types.Count; $i++) {
+                if ($Types[$i].ToLower() -eq $NewType.ToLower()) {
+                    $new = $false
+                    $Types.Remove($NewType.ToLower())
+                    break
+                }
+            }
+
+            if ($new) {
+                if ($NewType.ToLower() -eq "error" `
+                -or $NewType.ToLower() -eq "warning" `
+                -or $NewType.ToLower() -eq "information" `
+                -or $NewType.ToLower() -eq "success audit" `
+                -or $NewType.ToLower() -eq "failure audit" ) {
+                    $Types.Add($NewType.ToLower())
+                }
+            }
+
+        } while ($null -ne $NewType)
+
+        Return $Types
+    }
+
+    <# Handles editing the event source list. #>
+    static [System.Collections.ArrayList]EventSources_Edit($Filter) {
+        $Sources = $Filter.EventSources
+        $NewSource = " "
+
+        do {
+
+            Clear-Host
+            Write-Host "==============================="
+            Write-Host "  .. > Filter > Edit > Source "
+            Write-Host "==============================="
+            Write-Host "Event Sources Included {"
+
+            foreach ($EventSource in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
+
+                if ($Sources.Contains($EventSource.ToLower())) {Write-Host "[X] " $EventSource}
+                else {Write-Host "[ ] " $EventSource}
+
+            }
+            Write-Host "}"
+
+            $NewSource = Read-Host "Toggle? > "
+
+            if ($null -eq $NewSource) {break}
+
+            $new = $true
+            for ($i = 0; $i -lt $Sources.Count; $i++) {
+                if ($Sources[$i].ToLower() -eq $NewSource.ToLower()) {
+                    $new = $false
+                    $Sources.Remove($NewSource.ToLower())
+                    break
+                }
+            }
+
+            if ($new) {
+                if ($NewSource.ToLower() -eq "application" `
+                -or $NewSource.ToLower() -eq "hardware events" `
+                -or $NewSource.ToLower() -eq "internet explorer" `
+                -or $NewSource.ToLower() -eq "key management" `
+                -or $NewSource.ToLower() -eq "oalerts" `
+                -or $NewSource.ToLower() -eq "security" `
+                -or $NewSource.ToLower() -eq "system" `
+                -or $NewSource.ToLower()-eq "windows azure" `
+                -or $NewSource.ToLower() -eq "windows powershell" `
+                 ) {
+                    $Sources.Add($NewSource.ToLower())
+                }
+            }
+
+        } while ($null -ne $NewSource)
+
+        Return $Sources
+    }
+
+    <# Handles editing the time range. #>
+    static [Filter_Struct]TimeRange_Edit($Filter) {
+        
+        $edit = [Filter_Functions]::new()
+        $type = " "
+        do {
+
+            Clear-Host
+            Write-Host "==============================="
+            Write-Host "   .. > Filter > Edit > Time "
+            Write-Host "==============================="
+            Write-Host "Start Time: " $Filter.TimeStart
+            Write-Host "End Time:   " $Filter.TimeEnd
+            Write-Host
+            $type = Read-Host "Modify [start | end] > "
+
+            if ($null -eq $type) {Return $Filter}
+            if ($type -eq "start") {$Filter.TimeStart = $edit.Time_Edit($Filter.TimeStart)}
+            if ($type -eq "end") {$Filter.TimeEnd = $edit.Time_Edit($Filter.TimeEnd)}
+
+        } while ($null -ne $type)
+
+        Return $Filter
+
+    }
+
+    <# Helper function used in TimeRange_Edit. #>
+    static [datetime]Time_Edit($Time) {
+        $timeTemplate = "M/dd/yyyy H:mm"
+        $newTime = Read-Host "New Value [MM/dd/yyyy HH:mm] > "
+
+        if ($newTime -eq "") {Return $Time}
+
+        try {
+            Return [datetime]::ParseExact($newTime, $timeTemplate, $null)
+        }
+        catch {
+            Return $Time
+        }
+    }
+
+    <# Handles sorting out events that do not match the filter. #>
+    static [Log_Struct]Apply_Filter($Filter, $Logs) {
+
+        #Do Magic
+        
+        $Filtered_Set = ([Init_Functions]::new()).Init_Log()
+
+        foreach ($logtype in $Filter.EventSources) {
+
+            $found = 0
+            foreach ($event in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
+                # Skip logtypes that do not apply to this type
+                if ($logtype.replace(' ', '') -ne $event) {continue}
+
+                # The set of logs that this loop refers to
+                $Working_Set = $Logs.$logtype
+           
+           
+                foreach ($log in $Working_Set) {
+
                     # for every log in the working set:
                     #      1) Check Username vs the User list
                     #      2) Check Event Time vs Start Time
                     #      3) Check Event Time vs End Time
                     #      4) Check Event Code vs List
                     #      5) Check Event Type vs List
-                    
+               
                     # 1) Skip non null username values, and users in the usernames list
-                    if ($log.Username -ne $null) {
-                        if ($filter.Usernames.Contains($log.UserName.split('\')[1])) {
+                    if ($null -ne $log.Username) {
+                        if ($Filter.Usernames.Contains($log.Username.split('\')[1])) {
                             continue
                         }
                     }
 
+
                     # 2) Exclude logs created before specified time range
-                    if ($filter.TimeStart -ne $null){
+                    if ($null -ne $Filter.TimeStart) {
                         if ($log.TimeGenerated -lt $filter.TimeStart) {
                             continue
                         }
                     }
 
+
                     # 3) Exclude logs created after specified time range
-                    if ($filter.TimeEnd -ne $null) {
-                        if ($log.TimeGenerated -gt $filter.TimeEnd) {
+                    if ($null -ne $Filter.TimeEnd) {
+                        if ($log.TimeGenerated -gt $Filter.TimeEnd) {
                             continue
                         }
                     }
 
-                    # 4) Include only logs with matching event codes, unless * is in the event codes
-                    if (-not $filter.EventCodes.Contains("*")) {
-                        if (-not $filter.EventCodes.Contains($log.EventID)) {
+
+                    # 4) Include only logs with matching event codes, unless * is in the event codes list
+                    if (-not $Filter.EventCodes.Contains("*")) {
+                        if (-not $Filter.EventCodes.Contains($log.EventID)) {
                             continue
                         }
                     }
 
-                    # 5) Exclude unselected event types
-                    ## NEEDS TESTING ##
-                    <#
-                    if (-not $filter.EventTypes.Contains($log.EventTypes)) {
+
+                    #  5) Exclude unselected event types
+                    if (-not $Filter.EventTypes.Contains($log.EntryType.ToString().ToLower())) {
                         continue
-                    } 
-                    #>
+                    }
+
+                    $found += 1
                     
-                    <##
-                    Add additional filtration criteria here
-                    ##>
-
-                    # Only logs that match filter should make it here
-                    # Add current log to filtered set
-                    $filteredSet.$logtype.add($log)
-
-                    #$filteredSet.$logtype += $log
+                    $Filtered_Set.$logtype.add($log)
                 }
             }
+
+            if ($found -ne 0) {
+                $Filtered_Set.loaded = $true
+            }
+
         }
+
+        Return $Filtered_Set
     }
 
-    # After all log types are filtered, return the log struct
-    return $filteredSet
+
 }
 
-function Show-Log-Stats {
-    param ($logs, $filtered)
+class New_Menu_Functions {
 
-    if ($script:UseGlobals) {
-        $logs = $script:Logs
-        $filtered = $script:FilteredLogs
+    static [void]main() {
+
+        $menus = [New_Menu_Functions]::new()
+        $load = [Load_Functions]::new()
+        $export = [Export_Functions]::new()
+        $filt = [Filter_Functions]::new()
+        $inits = [Init_Functions]::new()
+
+        $Logs = $inits.Init_Log()
+        $Filtered = $inits.Init_Log()
+        $Filter = $inits.Init_Filter()
+
+        do {
+
+            $main = Write-Menu -Title 'Whodunnit >' -Sort -Entries @{
+                '1) Load Logs' = '$Logs = $menus.load_menu($Logs)'
+                '2) Active Filter' = '$Filter = $menus.filter_menu($Filter)'
+                '3) Apply Filter' = '$Filtered = $filt.Apply_Filter($Logs, $Filter)'
+                '4) Show Logs' = '$export.Show_Log_Stats($Logs, $Filtered)'
+                '5) Export Logs' = '$export.Export_Logs($Filtered)'
+                '6) Exit' = 'break'
+            }
+
+        } while ($true)
     }
-
-    Write-Output "============"
-    Write-Output " Log Counts "
-    Write-Output "============"
-    Write-Output "Logtype              Unfiltered Count  Filtered Count"
-    Write-Output "+---------------------------------------------------+"
-    foreach ($logtype in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
+    
+    static [Log_Struct]load_menu($Logs) {
         
-        Write-Host -NoNewline "| "
+        $load = [Load_Functions]::new()
 
-        $FiltCount = $filtered.$logtype.Count.ToString()
-        $Count = $logs.$logtype.Count.ToString()
+        $load_r = Write-Menu -Title 'Whodunnit > Load >' -Sort -Entries @{
+            '1) Read From File' = '$Logs = $load.Import_Logs($Logs)'
+            '2) Read From Local Host' = '$Logs = $load.Read_From_Local($Logs)'
+            '3) Read From Remote Host' = '$Logs = $Logs'
+        }
 
-
-        $logtype = $logtype.PadRight(26, " ")
-        $FiltCount = $FiltCount.PadLeft(18 - $Count.Length, " ")
-
-        Write-Host "$logtype $Count $FiltCount" -NoNewline
-        Write-Host "    |"
+        Return $Logs
     }
 
-    Write-Output "+---------------------------------------------------+"
-    if ($script:UseGlobals){ Read-Host }
+    static [Filter_Struct]filter_menu($Filter) {
+
+        $filters = [Filter_Functions]::new()
+        $menus = [New_Menu_Functions]::new()
+
+        $filter_r = Write-Menu -Title 'Whodunnit > Filter >' -Sort -Entries @{
+            '1) Load Filter' = '$Filter = $filters.Import_Filter($Filter)'
+            '2) Edit Filter' = '$Filter = $menus.edit_menu($Filter)'
+            '3) Export Filter' = '$filters.Export_Filter($Filter)'
+        }
+
+        Return $Filter
+    }
+
+    static [Filter_Struct]edit_menu($Filter) {
+
+        $edit = [Filter_Functions]::new()
+
+        $edit_r = Write-Menu -Title 'Whodunnit > Filter > Edit >' -Sort -Entries @{
+            '1) Username' = '$Filter.Usernames = $edit.Username_Edit($Filter)'
+            '2) Time Window' = '$Filter = $edit.TimeRange_Edit($Filter)'
+            '3) Event Codes' = '$Filter.EventCodes = $edit.EventCode_Edit($Filter)'
+            '4) Event Types' = '$Filter.EventTypes = $edit.EventTypes_Edit(($Filter)'
+            '5) Event Sources' = '$Filter.EventSources = $edit.EventSources_Edit($Filter)'
+            
+        }
+
+        Return $Filter
+    }
+
+    
 }
 
-
-
-<#
-    The following functions are not functional in an environment not 
-    utilizing global variables, as they require user interaction. 
+<# 
+([New_Menu_Functions]::new()).main()
 #>
 
-function Export-Filter {
+function Start-CLI {
 
-    if ($script:UseGlobals -eq $true) {
-        Export-Filter-Script (Read-Host "whodunnit> filter> export path> ") $CurrentFilter
-        return
-    }
-    
-    if ($script:UseGlobals -eq $false) {
-        Write-Error `
-                "Function: 'Export-Filter' cannot be imported; it requires the use of global variables in an interactive environment. 
-                Use Export-Filter-Script instead.
-                "
-        Read-Host
-        return
-    }
-}
+    $Logs = [Init_Functions]::Init_Log()
 
-function Edit-Filter-User {
-    
-    if ($script:UseGlobals -eq $false) {
-        Write-Error "Function: 'Edit-Filter-User' cannot be imported; it requires the use of global variables in an interactive environment. "
-        return
+    if ($null -ne $FilterPath) {
+        $Filter = ([Filter_Functions]::Import_Filter($null, $FilterPath))
+    } else {
+        $Filter = ([Init_Functions]::Init_Filter())
     }
-    
-	<# Takes a user input to change the global variable $Username #>
-    do {
-        Clear-Host
-        Write-Host "Negative Search Usernames:"
 
-        foreach ($user in $CurrentFilter.Usernames) {if($null -ne $user){$user}}
-        
-        $NewUser = Read-Host "Add / Remove > "
-        if ($null -eq $NewUser) {
+    if ($CreateFilter) {
+        if ($null -ne $OutputPath) {
+            Export-Clixml -Path $OutputPath -InputObject ([Init_Functions]::Init_Filter())
+            return
+        } else {
+            Write-Host ([Init_Functions]::Init_Filter())
             return
         }
 
-        $isNew = 1
-        $NewUsers = New-Object System.Collections.ArrayList
+    } elseif ($InputLocal) {
+        $Logs = [Load_Functions]::Read_From_Local()
+    } else {
+        $Logs = [Load_Functions]::Import_Logs($Logs, $InputFile)
+    } 
 
-        for ($i=0; $i -lt $CurrentFilter.Usernames.Count; $i++) {
-            if ($CurrentFilter.Usernames[$i] -eq $NewUser) {
-                $isNew = 0
-            } else {$NewUsers.add($CurrentFilter.Usernames[$i])}
-        }
-
-        if ($isNew -eq 1) {
-            $NewUsers.add($NewUser)
-        }
-
-        $script:CurrentFilter.Usernames = $NewUsers
-
-    } while ($null -ne $NewUser)
-}
-
-function Edit-Filter-Time {
-	<# Takes a user input for a start and end date (optional time format?)    >
-	<  Then updates the global variables $TimeWindowStart and $TimeWindowEnd #>
-
-    if ($script:UseGlobals -eq $false) {
-        Write-Error "Function: Edit-Filter-Time' cannot be imported; it requires the use of global variables in an interactive environment. "
-        return
+    $Logs = [Filter_Functions]::Apply_Filter($Filter, $Logs)
+    if ($null -ne $OutputPath) {
+        [Export_Functions]::Export_Logs($Logs, $OutputPath)
+    } else {
+        Write-Host $Logs
     }
 
-    do {
+}
 
-        $timeTemplate = "M/dd/yyyy H:mm"
-
-        Clear-Host
-        Write-Host "Time Window:"
-        Write-Host " " $CurrentFilter.TimeStart " "
-        Write-Host " " $CurrentFilter.TimeEnd " "
-
-        $type = Read-Host "Modify? [start/end] > "
-
-        if ($type -eq "start" -or $type -eq "1") {
-
-            Clear-Host
-            Write-Host "Time Window:"
-            Write-Host "+" $CurrentFilter.TimeStart "+"
-            Write-Host " " $CurrentFilter.TimeEnd " "
+function main {
+    
+    if ($args.Count -eq 0 -or $UseGUI) {
         
-            $newTime = Read-Host "New Value [M/dd/yyyy H:mm] > "
+        # Begin GUI
+        [Menu_Functions]::Write_Menu_Main()
 
-            if ($newTime -eq "") {continue}
-
-            $newTime
-            [DateTime]::ParseExact($newTime, $timeTemplate, $null)
-            Read-Host
-            $script:CurrentFilter.TimeStart = [DateTime]::ParseExact($newTime, $timeTemplate, $null)
-
-        }
-
-        if ($type -eq "end" -or $type -eq "2") {
-
-            Clear-Host
-            Write-Host "Time Window:"
-            Write-Host " " $CurrentFilter.TimeStart " "
-            Write-Host "+" $CurrentFilter.TimeEnd "+"
-        
-            $newTime = Read-Host "New Value [M/dd/yyyy H:mm] > "
-
-            if ($newTime -eq "") {continue}
-
-            $newTime
-            [DateTime]::ParseExact($newTime, $timeTemplate, $null)
-            Read-Host
-            $script:CurrentFilter.TimeEnd = [DateTime]::ParseExact($newTime, $timeTemplate, $null)
-
-        }
-    } while($type -ne "")
-}
-
-function Edit-Filter-EventTypes {
-    
-    if ($script:UseGlobals -eq $false) {
-        Write-Error "Function: 'Edit-Filter-EventTypes' cannot be imported; it requires the use of global variables in an interactive environment. "
-        return
-    }
-    
-    do {
-        Clear-Host
-        Write-Host "Event Types Included:"
-
-        foreach ($EventType in @("Error", "Warning", "Information", "Success Audit", "Failure Audit")) {
-            
-            if ($CurrentFilter.EventTypes.Contains($EventType.ToLower())) {Write-Host "[X] " $EventType} 
-            else {Write-Host "[ ] " $EventType}
-
-        }
-
-        $toggle = Read-Host "Toggle? > "
-
-        if ($null -eq $toggle) {return}
-
-        $isNew = 1
-        $NewEvents = @()
-        for ($i=0;$i -lt $CurrentFilter.EventTypes.Count; $i++) {
-            if ($CurrentFilter.EventTypes[$i].ToLower() -eq $toggle.ToLower()) {
-               $isNew = 0
-            } else {$NewEvents += $CurrentFilter.EventTypes[$i]}
-        }
-    
-        if ($isNew -eq 1 `
-            -and ($toggle.ToLower() -eq "error" `
-              -or $toggle -eq "warning" `
-              -or $toggle -eq "information" `
-              -or $toggle -eq "success audit" `
-              -or $toggle -eq "failure audit" )) {
-
-            $NewEvents += ($toggle.ToLower())
-        }
-
-        $script:CurrentFilter.EventTypes = $NewEvents
-    
-    } while ($null -ne $toggle)
-}
-
-function Edit-Filter-EventCodes {
-
-    if ($script:UseGlobals -eq $false) {
-        Write-Error "Function: Edit-Filter-EventCodes' cannot be imported; it requires the use of global variables in an interactive environment. "
-        return
-    }
-
-    do {
-        Clear-Host
-        Write-Host "Positive Search Event Codes:"
-
-        foreach ($event in $CurrentFilter.EventCodes) {if($null -ne $event){$event}}
-        
-        $NewCode = Read-Host 'Add / Remove [$ErrorCode | reset]> '
-       
-        if ($null -eq $NewCode) {break}
-        if ($NewCode -eq "reset") {$script:CurrentFilter.EventCodes = New-Object System.Collections.ArrayList; continue}
-
-
-        $isNew = 1
-        $NewCodes = New-Object System.Collections.ArrayList
-
-        for ($i=0; $i -lt $CurrentFilter.EventCodes.Count; $i++) {
-            if ($CurrentFilter.EventCodes[$i] -eq $NewCode) {
-                $isNew = 0
-            } else {$NewCodes.add($CurrentFilter.EventCodes[$i])}
-        }
-
-        if ($isNew -eq 1) {
-            $NewCodes.add($NewCode)
-        }
-
-        $CurrentFilter.EventCodes = $NewCodes
-
-    } while ($null -ne $NewCode) 
-}
-
-function Edit-Filter-EventSources {
-
-    if ($script:UseGlobals -eq $false) {
-        Write-Error "Function: Edit-Filter-EventSources' cannot be imported; it requires the use of global variables in an interactive environment. "
-        return
-    }
-
-    do {
-        Clear-Host
-        Write-Host "Event Types Included:"
-
-        foreach ($EventSource in @("Application", "Hardware Events", "Internet Explorer", "Key Management", "OAlerts", "Security", "System", "Windows Azure", "Windows Powershell")) {
-            
-            if ($null -eq $CurrentFilter.EventSources ) {Write-Host "[ ] " $EventSource; continue}
-            if ($CurrentFilter.EventSources.Contains($EventSource.ToLower())) {Write-Host "[X] " $EventSource} 
-            else {Write-Host "[ ] " $EventSource}
-
-        }
-
-        $toggle = Read-Host "Toggle? > "
-
-        if ($null -eq $toggle) {return}
-
-        $isNew = 1
-        $NewEvents = @()
-        for ($i=0;$i -lt $CurrentFilter.EventSources.Count; $i++) {
-            if ($CurrentFilter.EventSources[$i].ToLower() -eq $toggle.ToLower()) {
-               $isNew = 0
-            } else {$NewEvents += $CurrentFilter.EventSources[$i]}
-        }
-    
-        if ($isNew -eq 1 `
-            -and ($toggle.ToLower() -eq "application" `
-              -or $toggle -eq "hardware events" `
-              -or $toggle -eq "internet explorer" `
-              -or $toggle -eq "key management" `
-              -or $toggle -eq "oalerts" `
-              -or $toggle -eq "security" `
-              -or $toggle -eq "system" `
-              -or $toggle -eq "windows azure" `
-              -or $toggle -eq "windows powershell" `
-               )) {
-
-            $NewEvents += ($toggle.ToLower())
-        }
-
-        $script:CurrentFilter.EventSources = $NewEvents
-    
-    } while ($null -ne $toggle)
+    } else { Start-CLI }
 
 }
 
-function Export-Logs {
-    param($logs, $path)
+main
 
-    if ($script:UseGlobals -eq $true) { 
-        if ($script:Logs.Loaded -eq $False) {
-            Read-Host "++ No Logs are Loaded! Cannot Export ++"
-            Return
-        }
-        
-        $exType = Read-Host "whodunnit> export all?> "
-        $filePath = Read-Host "whodunnit> export path> "
-    
-        # Export all logs
-        if ($exType -eq "y" -or $exType -eq "yes") {
-            Export-Logs-Script $script:Logs $filePath
-        } elseif ($exType -eq "n" -or $exType -eq "no") {
-            Export-Logs-Script $script:FilteredLogs $filePath
-        }
-        return 
-    }
-
-    return Export-Logs-Script $logs $path   
-}
-
-function Filter-Logs {
-    $script:FilteredLogs = Filter-Logs-CLI $script:Logs $script:CurrentFilter
-}
-
-
-
-# Placeholder
-function Not-Yet-Implemented {
-    Write-Host "TODO: This ¯\_(ツ)_/¯"
-    Read-Host
-}
-
-
-
-if ($args.Count -eq 0) {
-    $script:UseGlobals = $true
-    $script:CurrentFilter = Initialize-Filter @() "" "" @() @()
-    $script:Logs = Initialize-Log-Struct
-    $script:FilteredLogs = Initialize-Log-Struct
-    Write-Lame-Menu-Main
-
-} else {
-    CLI-Backbone
-}
-
-
-
-<# fancy menu for later
-    
-    Issues:
-    variables do not seem to be accessible in their current state when used
-        should be fixed when refactored to not use global variables
-            UPDATE (1/17/19): Unlikely to be fixed, unless a workaround to powershell returning all output is found. 
-        
-    menu needs a user experience overhaul
-        use the title option to set a header up
-        possibly a help menu or tag on the main menu 
-
-function Load-Menu {
-    Write-Menu -Title 'Whodunnit > Load >' -Entries @{
-        'Read from File' = 'Not-Yet-Implemented'
-        'Read from Local Machine' = 'Read-From-Local';
-        'Read from Remote Machine' = 'Not-Yet-Implemented'
-    }
-}
-
-function Filter-Menu-Edit {    
-    Write-Menu -Title "Whodunnit > Filter > Edit >" -Entries @{
-        'Username' = 'Edit-Filter-User';
-        'Time WindowEdit'
-        'Event CodesEdit'
-        'Event Types' = 'Edit-Filter-EventTypes'
-        'Event SourcesEdit'  
-    }
-}
-
-function Filter-Menu {
-    Write-Menu -Title "Whodunnit > Filter >" -Entries @{
-        'Export' = 'Export-Filter'
-        'Load' = 'Import-Filter'
-        'Edit' = 'Filter-Menu-Edit';    
-    }
-}
-
-do {
-    $menuReturn = Write-Menu -Title 'Whodunnit >' -Entries @{
-        'Load Logs' = 'Load-Menu';
-        'Active Filter' = 'Filter-Menu';        
-        'Display Logs' = '';
-        'Export Logs' = 'Export-Logs';
-    }
-} while ($True)
-#>

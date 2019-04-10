@@ -1,2 +1,7 @@
 filter
 export.xml
+notes
+.notes.swp
+.vscode/launch.json
+.gitignore
+testfilter
