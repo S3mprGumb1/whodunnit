@@ -106,24 +106,14 @@ Roadmap
 | Implement an interactive CLI Menu | Not Started | ?? | N/A |
 | Code Formatting, Documentation, and Readability Improvements | Ongoing | N/A | N/A |
 
-Branch Description
-------------------
-```
-This branch was created to contain the changes made while working on Issue #4.
-Status: Implementing. 
-Detailed: Implemented Exporting functionality. 3-7-19
-	  Finished Refactoring. Implementing CLI Functionality 4-5-19
-```
 
 Branch Descriptions
 ------------------
-Class_Refactor:
-
+Interactive_menu:
 ```
-This branch was created to contain the changes made while working on Issue #4.
+This branch was created to contain the changes made while working on an interactive menu.
 Status: Implementing. 
-Detailed: Implemented Exporting functionality. 3-7-19
-	  Finished Refactoring. Implementing CLI Functionality 4-5-19
+Detailed: Created 4/10//2019
 
 ```
 
