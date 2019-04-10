@@ -112,7 +112,7 @@ class Filter_Struct {
 # Functions
 class Menu_Functions {
     
-    [void]Write_Menu_Main($menu) {
+    static [void]Write_Menu_Main($menu) {
 
         $inits = [Init_Functions]::new()
         $menu = [Menu_Functions]::new()
@@ -153,7 +153,7 @@ class Menu_Functions {
 
     }
 
-    [Log_Struct]Write_Menu_Load($Logs) {
+    static [Log_Struct]Write_Menu_Load($Logs) {
         
         $UserInput = 0
         $load = [Load_Functions]::new()
@@ -186,7 +186,7 @@ class Menu_Functions {
         return $Logs
     }
 
-    [Filter_Struct]Write_Menu_Filter($Filter, $Logs) {
+    static [Filter_Struct]Write_Menu_Filter($Filter, $Logs) {
         
         $UserInput = 0
         $filters = [Filter_Functions]::new()
@@ -219,7 +219,7 @@ class Menu_Functions {
         Return $Filter
     }
 
-    [Filter_Struct]Write_Menu_Edit($Filter) {
+    static [Filter_Struct]Write_Menu_Edit($Filter) {
         
         $UserInput = 0
         $Bak = $Filter
@@ -259,7 +259,7 @@ class Menu_Functions {
 
 class Init_Functions {
 
-    [Filter_Struct]Init_Filter() {
+    static [Filter_Struct]Init_Filter() {
         $Filter = [Filter_Struct]::new()
 
         #Initialize
@@ -279,7 +279,7 @@ class Init_Functions {
         Return $Filter
     }
 
-    [Log_Struct]Init_Log() {
+    static [Log_Struct]Init_Log() {
         $Log = [Log_Struct]::new()
 
         foreach ($event in @("Application", "HardwareEvents", "InternetExplorer", "KeyManagement", "OAlerts", "Security", "System", "WindowsAzure", "WindowsPowershell")) {
@@ -293,7 +293,7 @@ class Init_Functions {
 class Load_Functions {
     
     <# Reads in logs from a previously exported logset #>
-    [Log_Struct]Import_Logs($Logs) {
+    static [Log_Struct]Import_Logs($Logs, $InputPath) {
         
         if ($Logs.loaded) {
             Write-Host "Logs are already loaded!"
@@ -301,12 +301,13 @@ class Load_Functions {
             
             if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Logs}
         } 
-
+        
         Return Import-Clixml -LiteralPath (Read-Host "whodunnit> load> import path> ")
+        
     }
 
     <# Reads in logs from the local machine #>
-    [Log_Struct]Read_From_Local($Logs) {
+    static [Log_Struct]Read_From_Local($Logs) {
 
         # Prevent Overwrites
         if ($Logs.loaded) {
@@ -363,17 +364,15 @@ class Export_Functions {
 
     <# Exports Logs as an xml object. very space intensive. #>
     <# ROADMAP: Issue #2 #>
-    [bool]Export_Logs($Logs) {
+    static [bool]Export_Logs($Logs, $OutputPath) {
             
         if ($Logs.loaded -eq $false) {
             Read-Host "Error: No logs are loaded"
             Return $false
         }
 
-        $UserInput = Read-Host "whodunnit> Export Path> "
-
         try {
-            Export-Clixml -LiteralPath $UserInput -InputObject $Logs
+            Export-Clixml -LiteralPath $OutputPath -InputObject $Logs
         }
         catch {
             Read-Host "Error: Encountered Problem Writing File"
@@ -384,7 +383,13 @@ class Export_Functions {
 
     }
 
-    [void]Show_Log_Stats($Logs, $Filtered) {
+    <# Wrapper for interactive session #>
+    static [bool]Export_Logs($Logs) {
+        $OutputPath = Read-Host "whodunnit> Export Path> "
+        Return [Export_Functions]::Export_Logs($Logs, $OutputPath)
+    }
+
+    static [void]Show_Log_Stats($Logs, $Filtered) {
         
         Clear-Host
         Write-Host "============"
@@ -416,12 +421,10 @@ class Export_Functions {
 class Filter_Functions {
 
     <# Exports a filter as an xml object. #>
-    [bool]Export_Filter($Filter) {
-
-        $UserInput = Read-Host "whodunnit> filter> export path> "
+    static [bool]Export_Filter($Filter, $OutputPath) {
 
         try {
-            Export-Clixml -LiteralPath $UserInput -InputObject $Filter
+            Export-Clixml -LiteralPath $OutputPath -InputObject $Filter
         }
         catch {
             Read-Host "Error Encountered Problem Writing File"
@@ -432,8 +435,14 @@ class Filter_Functions {
 
     }
 
+    <# Wrapper for interactive session #>
+    static [bool]Export_Filter($Filter) {
+        $OutputPath = Read-Host "whodunnit> filter> export path> "
+        Return [Filter_Functions]::Export_Filter($Filter, $OutputPath)
+    }
+
     <# Imports a filter from an exported xml. #>
-    [Filter_Struct]Import_Filter($Filter) {
+    static [Filter_Struct]Import_Filter($Filter, $FilterPath) {
 
         if ($Filter.loaded) {
             Write-Host "A filter is already loaded!"
@@ -443,17 +452,13 @@ class Filter_Functions {
             if ($UserInput.ToLower() -ne "y" -and $UserInput.ToLower() -ne "yes") {Return $Filter}
         }
 
-        $UserInput = $null
-        $UserInput = Read-Host "whodunnit> filter> import path> " 
-        
-
-        if ($null -eq $UserInput) {
+        if ($null -eq $FilterPath) {
             $init = [Init_Functions]::new()
             Return $init.Init_Filter()
         }
 
         try {
-           Return Import-Clixml -LiteralPath $UserInput
+           Return Import-Clixml -LiteralPath $FilterPath
         } catch {
             Read-Host "Error: File not found! Overwriting current filter with an empty filter."
             $init = [Init_Functions]::new()
@@ -463,8 +468,14 @@ class Filter_Functions {
         
     }
 
+    <# Wrapper for interactive session #>
+    static [Filter_Struct]Import_Filter($Filter) {
+        $FilterPath = Read-Host "whodunnit> filter> import path> "
+        Return [Filter_Functions]::Import_Filter($Filter, $FilterPath)
+    }
+    
     <# Handles editing the username list. #>
-    [System.Collections.ArrayList]Username_Edit($Filter) {
+    static [System.Collections.ArrayList]Username_Edit($Filter) {
         
         $NewUser = " "
         $Users = $Filter.Usernames
@@ -500,7 +511,7 @@ class Filter_Functions {
     }
 
     <# Handles editing the event code list. #>
-    [System.Collections.ArrayList]EventCode_Edit($Filter) {
+    static [System.Collections.ArrayList]EventCode_Edit($Filter) {
 
         $Codes = $Filter.EventCodes
         $NewCode = " "
@@ -538,7 +549,7 @@ class Filter_Functions {
     }
 
     <# Handles editing the event type list. #>
-    [System.Collections.ArrayList]EventTypes_Edit($Filter) {
+    static [System.Collections.ArrayList]EventTypes_Edit($Filter) {
 
         $Types = $Filter.EventTypes
         $NewType = " "
@@ -588,7 +599,7 @@ class Filter_Functions {
     }
 
     <# Handles editing the event source list. #>
-    [System.Collections.ArrayList]EventSources_Edit($Filter) {
+    static [System.Collections.ArrayList]EventSources_Edit($Filter) {
         $Sources = $Filter.EventSources
         $NewSource = " "
 
@@ -642,7 +653,7 @@ class Filter_Functions {
     }
 
     <# Handles editing the time range. #>
-    [Filter_Struct]TimeRange_Edit($Filter) {
+    static [Filter_Struct]TimeRange_Edit($Filter) {
         
         $edit = [Filter_Functions]::new()
         $type = " "
@@ -668,7 +679,7 @@ class Filter_Functions {
     }
 
     <# Helper function used in TimeRange_Edit. #>
-    [datetime]Time_Edit($Time) {
+    static [datetime]Time_Edit($Time) {
         $timeTemplate = "M/dd/yyyy H:mm"
         $newTime = Read-Host "New Value [MM/dd/yyyy HH:mm] > "
 
@@ -683,7 +694,7 @@ class Filter_Functions {
     }
 
     <# Handles sorting out events that do not match the filter. #>
-   [Log_Struct]Apply_Filter($Filter, $Logs) {
+    static [Log_Struct]Apply_Filter($Filter, $Logs) {
 
         #Do Magic
         
@@ -766,7 +777,7 @@ class Filter_Functions {
 
 class New_Menu_Functions {
 
-    [void]main() {
+    static [void]main() {
 
         $menus = [New_Menu_Functions]::new()
         $load = [Load_Functions]::new()
@@ -792,7 +803,7 @@ class New_Menu_Functions {
         } while ($true)
     }
     
-    [Log_Struct]load_menu($Logs) {
+    static [Log_Struct]load_menu($Logs) {
         
         $load = [Load_Functions]::new()
 
@@ -805,7 +816,7 @@ class New_Menu_Functions {
         Return $Logs
     }
 
-    [Filter_Struct]filter_menu($Filter) {
+    static [Filter_Struct]filter_menu($Filter) {
 
         $filters = [Filter_Functions]::new()
         $menus = [New_Menu_Functions]::new()
@@ -819,7 +830,7 @@ class New_Menu_Functions {
         Return $Filter
     }
 
-    [Filter_Struct]edit_menu($Filter) {
+    static [Filter_Struct]edit_menu($Filter) {
 
         $edit = [Filter_Functions]::new()
 
@@ -843,13 +854,36 @@ class New_Menu_Functions {
 #>
 
 function Start-CLI {
+
+    $Logs = [Init_Functions]::Init_Log()
+
+    if ($null -ne $FilterPath) {
+        $Filter = ([Filter_Functions]::Import_Filter($null, $FilterPath))
+    } else {
+        $Filter = ([Init_Functions]::Init_Filter())
+    }
+
     if ($CreateFilter) {
-        Export-Clixml -Path $OutputPath -InputObject ([Init_Functions]::new()).Init_Filter()
+        if ($null -ne $OutputPath) {
+            Export-Clixml -Path $OutputPath -InputObject ([Init_Functions]::Init_Filter())
+            return
+        } else {
+            Write-Host ([Init_Functions]::Init_Filter())
+            return
+        }
+
     } elseif ($InputLocal) {
+        $Logs = [Load_Functions]::Read_From_Local()
+    } else {
+        $Logs = [Load_Functions]::Import_Logs($Logs, $InputFile)
+    } 
 
-    } elseif ($InputFile) {
-
-    } else {Write-Output "how'd you get here?"; Pause}
+    $Logs = [Filter_Functions]::Apply_Filter($Filter, $Logs)
+    if ($null -ne $OutputPath) {
+        [Export_Functions]::Export_Logs($Logs, $OutputPath)
+    } else {
+        Write-Host $Logs
+    }
 
 
 }
