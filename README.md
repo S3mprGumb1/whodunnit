@@ -3,13 +3,6 @@ Whodunnit
 
 Parse, Filter and Present Windows Event Logs with ease, from the comfort and familiarity of a PowerShell Environment.
 
-Key
-```
-- -> Incomplete
-+ -> Complete
-? -> Planned for Future Implementaion
-```
-
 Interactive mode Menu Options
 ```	
 + Read In Log Files
@@ -89,25 +82,10 @@ Notes:
 	
 ```
 
-Roadmap
--------
+[Roadmap](../wiki/roadmap)
+-----------
 
-| Descritption | Status | Tenative Timeframe | Date Completed |
-| :------------- | :-------------: |  :-------------: | :-------------: |
-| Refactor to allow basic scripting  | Complete | End Jan. 2019 | Mid Jan. 2019 |
-| Refactor entire project to use classes instead of functions (See issue 4) | Complete | End Mar. 2019 | Beg Apr. 2019 |
-| Refactor data types: Change arrays to ArrayLists to drastically improve performance | Complete | Mid Feb. 2019 | Beg Feb. 2019 |
-| Import logs from a mounted, but not booted, drive | Researching | ?? |  |
-| Implement Interactive Menu | On Hold | ?? |  |
-| Export logs to a format that Microsoft's Windows Event Viewer can import | Not Started | ?? | N/A |
-| Implement Out-GridView Support for Type and Source lists | Not Started | ?? | N/A |
-| Implement Out-GridView Support for previewing Export Set | Not Started | ?? | N/A |
-| Import logs from an offline NTFS disk, using MFT | Not Started | ?? | N/A |
-| Implement an interactive CLI Menu | Not Started | ?? | N/A |
-| Code Formatting, Documentation, and Readability Improvements | Ongoing | N/A | N/A |
-
-
-Branch Descriptions
+[Branch Descriptions](../wiki/branches)
 ------------------
 Interactive_menu:
 ```
