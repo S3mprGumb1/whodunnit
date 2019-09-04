@@ -97,11 +97,11 @@ Roadmap
 | Refactor to allow basic scripting  | Complete | End Jan. 2019 | Mid Jan. 2019 |
 | Refactor entire project to use classes instead of functions (See issue 4) | Complete | End Mar. 2019 | Beg Apr. 2019 |
 | Refactor data types: Change arrays to ArrayLists to drastically improve performance | Complete | Mid Feb. 2019 | Beg Feb. 2019 |
-| Implement Interactive Menu | Implementing | ?? |  |
+| Import logs from a mounted, but not booted, drive | Researching | ?? |  |
+| Implement Interactive Menu | On Hold | ?? |  |
 | Export logs to a format that Microsoft's Windows Event Viewer can import | Not Started | ?? | N/A |
 | Implement Out-GridView Support for Type and Source lists | Not Started | ?? | N/A |
 | Implement Out-GridView Support for previewing Export Set | Not Started | ?? | N/A |
-| Import logs from a mounted, but not booted, drive | Not Started | ?? | N/A |
 | Import logs from an offline NTFS disk, using MFT | Not Started | ?? | N/A |
 | Implement an interactive CLI Menu | Not Started | ?? | N/A |
 | Code Formatting, Documentation, and Readability Improvements | Ongoing | N/A | N/A |
@@ -109,13 +109,20 @@ Roadmap
 
 Branch Descriptions
 ------------------
-Class_Refactor:
+Interactive_menu:
+```
+This branch was created to contain the changes made while working on an interactive menu.
+Status: On Hold
+Detailed: Created 10APR19
+	  Put on hold 04SEP19
 
 ```
-This branch was created to contain the changes made while working on Issue #4.
-Status: Implementing. 
-Detailed: Implemented Exporting functionality. 3-7-19
-	  Finished Refactoring. Implementing CLI Functionality 4-5-19
+
+mounted_disk:
+```
+This branch was created to contain the changes made while working on Issue #3.
+Status: Researching 
+Detailed: Started Researching the format for .evtx files - 04SEP19
 
 ```
 
