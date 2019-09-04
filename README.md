@@ -82,17 +82,6 @@ Notes:
 	
 ```
 
-Branch Descriptions
-------------------
-mounted_disk:
-
-```
-This branch was created to contain the changes made while working on Issue #3.
-Status: Researching 
-Detailed: Started Researching the format for .evtx files - 04SEP19
-
-```
-
 [Roadmap](../../wiki/Roadmap)
 -----------
 
