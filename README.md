@@ -87,22 +87,6 @@ Notes:
 
 [Branch Descriptions](../../wiki/Branches)
 ------------------
-Interactive_menu:
-```
-This branch was created to contain the changes made while working on an interactive menu.
-Status: On Hold
-Detailed: Created 10APR19
-	  Put on hold 04SEP19
-
-```
-
-mounted_disk:
-```
-This branch was created to contain the changes made while working on Issue #3.
-Status: Researching 
-Detailed: Started Researching the format for .evtx files - 04SEP19
-
-```
 
 Credit Where Credit is Due
 --------------------------
